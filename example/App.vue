@@ -12,6 +12,10 @@ import { GptModel, /** TextModle */ ChatgptError } from '../src/index';
 
 const apiKey = 'vio-2caf8a36-54ec-4fa1-869d-bf3cbca32952';
 
+
+
+
+
 // const textModel = new TextModle({
 //   apiKey: apiKey,
 //   apiBaseUrl: "https://aigateway.vdian.net",
