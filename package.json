@@ -1,0 +1,73 @@
+{
+  "name": "openai-apis",
+  "version": "1.0.0",
+  "description": "封装openai接口",
+  "main": "dist/index.umd.js",
+  "module": "dist/index.esm.js",
+  "scripts": {
+    "dev": "vue-cli-service serve",
+    "build": "NODE_ENV=production ENV=prod rollup -c  && api-extractor run"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/xcy960815/openai-apis.git"
+  },
+  "keywords": [
+    "openai",
+    "chatgpt",
+    "gpt",
+    "gpt3",
+    "gpt3.5"
+  ],
+  "author": {
+    "name": "xcy960815",
+    "email": "18763006837@163.com"
+  },
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/xcy960815/openai-apis/issues"
+  },
+  "types": "types/index.d.ts",
+  "homepage": "https://github.com/xcy960815/openai-apis#readme",
+  "devDependencies": {
+    "@babel/core": "^7.12.3",
+    "@microsoft/api-extractor": "^7.43.1",
+    "@rollup/plugin-commonjs": "^16.0.0",
+    "@rollup/plugin-node-resolve": "^10.0.0",
+    "@types/uuid": "^9.0.8",
+    "@vue/cli-plugin-typescript": "~5.0.0",
+    "@vue/cli-service": "~5.0.0",
+    "husky": "^1.3.1",
+    "less": "^4.0.0",
+    "less-loader": "^8.0.0",
+    "prettier": "^2.2.1",
+    "pretty-quick": "^1.8.0",
+    "rollup": "^2.33.1",
+    "rollup-plugin-babel": "^4.4.0",
+    "rollup-plugin-delete": "^2.0.0",
+    "rollup-plugin-livereload": "^2.0.0",
+    "rollup-plugin-sourcemaps": "^0.6.3",
+    "rollup-plugin-terser": "^7.0.2",
+    "rollup-plugin-typescript2": "^0.36.0",
+    "tslib": "^2.6.2",
+    "typescript": "^5.4.5",
+    "vcm-cli": "^1.0.5",
+    "vue": "^3.4.27"
+  },
+  "husky": {
+    "hooks": {
+      "pre-commit": "pretty-quick --staged",
+      "commit-msg": "vcm"
+    }
+  },
+  "dependencies": {
+    "eventsource-parser": "^1.1.2",
+    "gpt3-tokenizer": "^1.1.5",
+    "isomorphic-fetch": "^3.0.0",
+    "marked": "^12.0.2",
+    "uuid": "^9.0.1"
+  },
+  "volta": {
+    "node": "18.20.2"
+  }
+}
