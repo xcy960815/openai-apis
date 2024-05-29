@@ -24,7 +24,7 @@ const apiKey = 'vio-2caf8a36-54ec-4fa1-869d-bf3cbca32952';
 
 const gptModel = new GptModel({
   apiKey: apiKey,
-  apiBaseUrl: "https://aigateway.***.net",
+  apiBaseUrl: "https://aigateway.vdian.net",
   withContent: true,
   milliseconds: 10000,
   markdown2Html:true,
