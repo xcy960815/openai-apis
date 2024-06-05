@@ -4,30 +4,45 @@ import Gpt3Tokenizer from 'gpt3-tokenizer';
  * @description 基础类 有一些公共方法
  * @internal
  */
-export declare class PublicModel {
+export declare class Core {
     /** 用于区分是哪个模型的继承 返回不同请求地址 */
     private _who;
     /** gpt 对话key */
     protected _apiKey: string;
     /** gpt 请求域名 */
     protected _apiBaseUrl: string;
+    /** gpt 组织 */
     protected _organization?: string;
+    /** 是否开启debug */
     protected _debug: boolean;
-    protected _fetch: OpenAI.Fetch;
+    /** 是否携带上下文 */
     protected _withContent: boolean;
+    /** 消息仓库 */
     protected _messageStore: Map<string, OpenAI.Conversation>;
+    /** 最大请求token */
     protected _maxModelTokens: number;
+    /** 最多返回token */
     protected _maxResponseTokens: number;
+    /** 系统角色 */
     protected _systemMessage: string;
+    /** 取消fetch请求控制器 */
     protected _abortController: AbortController;
+    /** 用于计算token */
     protected _gpt3Tokenizer: Gpt3Tokenizer;
-    protected inConversation: boolean;
+    /** 超时时间 */
+    protected _milliseconds: number;
+    /** 是否开启markdown转html */
+    protected _markdown2Html: boolean;
     constructor(options: OpenAI.CoreOptions, who: string);
     /**
      * @desc 请求地址
      * @returns {string}
      */
     protected get url(): string;
+    /**
+     * @desc 生成随机id
+     * @returns {string}
+     */
     protected get uuid(): string;
     /**
      * @desc 请求头
@@ -42,12 +57,12 @@ export declare class PublicModel {
     protected getTokenCount(_text: string): Promise<number>;
     /**
      * @description 构建会话消息
-     * @param {"user" | "assistant"} role
+     * @param {"user" | "gpt-assistant" | "text-assistant"} role
      * @param {string} content
      * @param {OpenAI.SendMessageOptions} option
      * @returns {OpenAI.Conversation}
      */
-    protected buildConversation<R extends "user" | "gpt-assistant" | "text-assistant">(role: R, content: string, option: OpenAI.SendMessageOptions): OpenAI.BuildConversationReturns<R>;
+    protected buildConversation<R extends "user" | "gpt-assistant" | "text-assistant">(role: R, content: string, option: OpenAI.GetAnswerOptions): OpenAI.BuildConversationReturns<R>;
     /**
      * @desc 获取对话
      * @param {string} id
@@ -69,8 +84,9 @@ export declare class PublicModel {
      * @desc 输出debug参数
      * @param {string} action
      * @param {any[]} args
+     * @returns {void}
      */
-    protected debug(action: string, ...args: any[]): void;
+    protected _debugLog(action: string, ...args: any[]): void;
     /**
      * 这个方法的作用是将一个 ReadableStream 对象转换成一个异步迭代器 AsyncIterable，
      * 该迭代器会在每次迭代中返回一个 Uint8Array 类型的数据块。具体来说，该方法会获取一个 ReadableStream 对象的读取器（reader），
@@ -79,20 +95,36 @@ export declare class PublicModel {
      * @param {ReadableStream<Uint8Array>} stream
      * @returns {AsyncIterable<Uint8Array>}
      */
-    protected streamAsyncIterable(stream: ReadableStream<Uint8Array>): AsyncIterable<Uint8Array>;
+    private streamAsyncIterable;
     /**
      * @desc 向OpenAI发送请求
      * @param {string} url
      * @param {OpenAI.FetchSSEOptions} options
-     * @param {Fetch} fetch
      * @returns {Promise<OpenAI.GptResponse<R> | void>}
      */
-    protected getAnswer<R extends Object>(url: string, requestInit: OpenAI.FetchRequestInit, fetch: OpenAI.Fetch): Promise<OpenAI.AnswerResponse<R> | void>;
+    protected _fetchSSE<R extends Object>(url: string, requestInit: OpenAI.FetchRequestInit): Promise<OpenAI.AnswerResponse<R> | void>;
+    /**
+     * @description 创建parser
+     * @param {(p:string)=>void} onMessage
+     * @returns {EventSourceParser}
+     */
+    private _createParser;
+    /**
+     * @desc 解析markdown语法装换成html语法
+     * @param {string} content
+     * @returns {string}
+     */
+    protected _markdownToHtml(content: string): Promise<string>;
+    /**
+     * @description 清空promise
+     */
+    protected clearablePromise<V = any>(inputPromise: PromiseLike<V>, options: OpenAI.ClearablePromiseOptions): Promise<V>;
     /**
      * @desc 取消对话
+     * @param {string}reson
      * @returns {void}
      */
-    cancelConversation(): void;
+    cancelConversation(reson?: string): void;
 }
 /**
  * @desc ChatGPT 错误类
@@ -101,5 +133,5 @@ export declare class ChatgptError extends Error {
     status?: number;
     statusText?: string;
     url?: string;
-    constructor(message: string, option?: OpenAI.ErrorOption);
+    constructor(message: string, option?: OpenAI.ChatgptErrorOption);
 }

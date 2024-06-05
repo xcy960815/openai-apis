@@ -8,77 +8,64 @@
 
 <script lang="ts" setup>
 import { onMounted } from 'vue';
-import { GptModel, /** TextModle */ ChatgptError } from '../src/index';
+import { GptModel, TextModle, ChatgptError } from '../src/index';
 
-const apiKey = 'vio-2caf8a36-54ec-4fa1-869d-bf3cbca32952';
-
-
-
-
-
-// const textModel = new TextModle({
-//   apiKey: apiKey,
-//   apiBaseUrl: "https://aigateway.vdian.net",
-//   withContent: true,
-//   // systemMessage
-//   requestParams: {
-//     // model:""，
-//   }
-// })
+const apiKey = '';
+// const apiKey = 'sk-kUUnFGcqzcfiMcUO8EaRmwUvU0Y9SuUa7nGRmj53cKODSYGb'
+const textModel = new TextModle({
+  apiKey: apiKey,
+  apiBaseUrl: "abc",
+  withContent: true,
+  // systemMessage
+  markdown2Html: true,
+  requestParams: {
+    // model:""，
+  }
+})
 
 const gptModel = new GptModel({
   apiKey: apiKey,
-  apiBaseUrl: "https://aigateway.vdian.net",
+  apiBaseUrl: "abc",
   withContent: true,
   milliseconds: 10000,
-  markdown2Html:true,
+  markdown2Html: true,
   requestParams: {
     model: "gpt-3.5-turbo",
   }
 });
 
+gptModel.getModels()
 
 
 const getAnswerByGptModel = async (parentMessageId?: string) => {
-  const question = parentMessageId === undefined ? '有没有既可以在node环境和浏览器环境运行的fetch npm包？' : "给我写个巨好笑的笑话"
-  const answer = await gptModel.sendMessage(question, {
-    // messageId,
-    // stream: false,
+  const question = '有没有既可以在node环境和浏览器环境运行的fetch npm包？'
+  const answer = await gptModel.getAnswer(question, {
     parentMessageId,
     onProgress: (partialResponse) => {
       const answerDome = document.getElementById("answer-demo") as HTMLDivElement
       answerDome.innerHTML = partialResponse.content
     }
   })
-    .catch((error: ChatgptError) => {
-      console.log(error.message);
-    });
 };
 
-/**
- * 
- */
-// const getAnswerByTextModel = async (parentMessageId?: string) => {
-//   const question = parentMessageId === undefined ? 'git 如何重置之前的提交记录和远程仓库地址？' : "给我写个笑话"
-//   const answer = await textModel.sendMessage(question, {
-//     // systemMessage,
-//     parentMessageId,
-//     stream: false,
-//     onProgress: (partialResponse) => {
-//       const answerDome = document.getElementById("answer-demo") as HTMLDivElement
-//       answerDome.innerHTML = partialResponse.content
-//       console.log("answerDome", answerDome.innerHTML);
 
-//     },
-//   })
-//     .catch((error: ChatgptError) => {
-//       console.log(error);
-//     });
-//   if (parentMessageId) return
-//   getAnswerByTextModel(answer?.parentMessageId)
+const getAnswerByTextModel = async (parentMessageId?: string) => {
+  const question = '有没有既可以在node环境和浏览器环境运行的fetch npm包？'
+  const answer = await textModel.getAnswer(question, {
+    parentMessageId,
+    onProgress: (partialResponse) => {
+      const answerDome = document.getElementById("answer-demo") as HTMLDivElement
+      answerDome.innerHTML = partialResponse.content
+    },
+  })
+    .catch((error: ChatgptError) => {
+      console.log(error);
+    });
+ console.log("answer",answer);
+ 
 
 
-// };
+};
 
 const cancelConversation = () => {
   // textModel.cancelConversation()
@@ -87,7 +74,7 @@ const cancelConversation = () => {
 
 onMounted(() => {
   // getAnswerByTextModel()
-  getAnswerByGptModel()
+  // getAnswerByGptModel()
 
 })
 </script>

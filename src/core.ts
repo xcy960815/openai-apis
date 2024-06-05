@@ -1,4 +1,4 @@
-import { openai } from "./index"
+import { OpenAI } from "./index"
 import { createParser } from 'eventsource-parser';
 import type { EventSourceParser } from "eventsource-parser"
 import { v4 as uuidv4 } from "uuid"
@@ -36,7 +36,7 @@ export class Core {
     /** 是否携带上下文 */
     protected _withContent: boolean;
     /** 消息仓库 */
-    protected _messageStore: Map<string, openai.ConversationMessage>
+    protected _messageStore: Map<string, OpenAI.Conversation>
     /** 最大请求token */
     protected _maxModelTokens: number;
     /** 最多返回token */
@@ -52,7 +52,7 @@ export class Core {
     /** 是否开启markdown转html */
     protected _markdown2Html: boolean
 
-    constructor(options: openai.ModelOptions, who: string) {
+    constructor(options: OpenAI.CoreOptions, who: string) {
 
         const { apiKey, apiBaseUrl, organization, debug, withContent, maxModelTokens, maxResponseTokens, systemMessage, milliseconds, markdown2Html } = options;
 
@@ -60,7 +60,7 @@ export class Core {
 
         this._apiKey = apiKey;
 
-        this._apiBaseUrl = apiBaseUrl ?? 'https://api.openai.com';
+        this._apiBaseUrl = apiBaseUrl ?? 'https://api.OpenAI.com';
 
         this._organization = organization;
 
@@ -72,7 +72,7 @@ export class Core {
 
         this._maxResponseTokens = maxResponseTokens ?? 1000;
 
-        this._messageStore = new Map<string, openai.ConversationMessage>()
+        this._messageStore = new Map<string, OpenAI.Conversation>()
 
         this._gpt3Tokenizer = new Gpt3Tokenizer({ type: 'gpt3' });
 
@@ -86,11 +86,19 @@ export class Core {
     }
 
     /**
-     * @desc 请求地址
+     * @desc completions请求地址
      * @returns {string}
      */
-    protected get url(): string {
+    protected get completionsUrl(): string {
         return `${this._apiBaseUrl}${this._who === 'gpt-model' ? '/v1/chat/completions' : '/v1/completions'}`
+    }
+
+    /**
+     * @desc models 请求地址
+     * @returns {string}
+     */
+    private get modelUrl(): string {
+        return `${this._apiBaseUrl}${'/v1/models'}`
     }
 
     /**
@@ -126,23 +134,23 @@ export class Core {
 
     /**
      * @description 构建会话消息
-     * @param {"user" | "assistant"} role 
+     * @param {"user" | "gpt-assistant" | "text-assistant"} role 
      * @param {string} content 
-     * @param {openai.SendMessageOptions} option 
-     * @returns {openai.ConversationMessage}
+     * @param {OpenAI.SendMessageOptions} option 
+     * @returns {OpenAI.Conversation}
      */
-    protected buildConversationMessage<R extends "user" | "gpt-assistant" | "text-assistant">(
+    protected buildConversation<R extends "user" | "gpt-assistant" | "text-assistant">(
         role: R,
         content: string,
-        option: openai.SendMessageOptions
-    ): openai.BuildConversationMessageReturns<R> {
+        option: OpenAI.GetAnswerOptions
+    ): OpenAI.BuildConversationReturns<R> {
         if (role === 'user') {
             return {
                 role: "user",
                 messageId: option.messageId || this.uuid,
                 parentMessageId: option.parentMessageId,
                 content,
-            } as openai.BuildConversationMessageReturns<R>;
+            } as OpenAI.BuildConversationReturns<R>;
         } else if (role === 'gpt-assistant' || role === 'text-assistant') {
             return {
                 role: "assistant",
@@ -150,18 +158,18 @@ export class Core {
                 parentMessageId: option.messageId || this.uuid,
                 content,
                 detail: null
-            } as openai.BuildConversationMessageReturns<R>;
+            } as OpenAI.BuildConversationReturns<R>;
         } else {
-            return undefined as openai.BuildConversationMessageReturns<R>;
+            return undefined as OpenAI.BuildConversationReturns<R>;
         }
     }
 
     /**
      * @desc 获取对话
      * @param {string} id
-     * @returns {Promise<openai.ConversationMessage | undefined>}
+     * @returns {Promise<OpenAI.Conversation | undefined>}
      */
-    protected getConversationMessage(id: string): Promise<openai.ConversationMessage | undefined> {
+    protected getConversation(id: string): Promise<OpenAI.Conversation | undefined> {
         return new Promise((resolve) => {
             const message = this._messageStore.get(id)
             resolve(message)
@@ -169,10 +177,10 @@ export class Core {
     }
     /**
      * @desc 更新对话
-     * @param {openai.ConversationMessage} message
+     * @param {OpenAI.Conversation} message
      * @returns {Promise<void>}
      */
-    protected upsertConversationMessage(message: openai.ConversationMessage): Promise<void> {
+    protected upsertConversation(message: OpenAI.Conversation): Promise<void> {
         return new Promise((resolve) => {
             // 这里做层浅拷贝 因为map存储的值如果是对象的话 会受到指针的影响
             this._messageStore.set(message?.messageId, { ...message })
@@ -197,7 +205,7 @@ export class Core {
      */
     protected _debugLog(action: string, ...args: any[]) {
         if (this._debug) {
-            console.log(`Openai-apis:DEBUG:${action}`, ...args);
+            console.log(`OpenAI-apis:DEBUG:${action}`, ...args);
         }
     }
     /**
@@ -223,17 +231,17 @@ export class Core {
         }
     }
     /**
-     * @desc 向openai发送请求
+     * @desc 向OpenAI发送请求
      * @param {string} url 
-     * @param {openai.FetchSSEOptions} options
-     * @returns {Promise<openai.GptResponse<R> | void>}
+     * @param {OpenAI.FetchSSEOptions} options
+     * @returns {Promise<OpenAI.GptResponse<R> | void>}
      */
-    protected async _getAnswer<R extends Object>(url: string, requestInit: openai.FetchRequestInit): Promise<openai.AnswerResponse<R> | void> {
+    protected async _fetchSSE<R extends Object>(url: string, requestInit: OpenAI.FetchRequestInit): Promise<OpenAI.AnswerResponse<R> | void> {
         const { onMessage, ...fetchOptions } = requestInit;
-        const response = await fetch(url, { ...fetchOptions }) as openai.AnswerResponse<R>
+        const response = await fetch(url, { ...fetchOptions }) as OpenAI.AnswerResponse<R>
         if (!response.ok) {
-            // 走到这一步是openai接口错误的时候 如果其他后端应用封装了openai接口即使发生错误也不一定 走到这步 
-            const errorOption: openai.ChatgptErrorOption = {
+            // 走到这一步是OpenAI接口错误的时候 如果其他后端应用封装了OpenAI接口即使发生错误也不一定 走到这步 
+            const errorOption: OpenAI.ChatgptErrorOption = {
                 url: response.url,
                 status: response.status,
                 statusText: response.statusText
@@ -271,16 +279,14 @@ export class Core {
      * @returns {string}
      */
     protected async _markdownToHtml(content: string): Promise<string> {
-        // content.split('```').length % 2 === 1 ? content : content + '\n\n```\n\n';
         const html = await marked.parse(content);
-        console.log("html", html);
         return html
     }
 
     /**
      * @description 清空promise
      */
-    protected clearablePromise<V = any>(inputPromise: PromiseLike<V>, options: openai.ClearablePromiseOptions) {
+    protected clearablePromise<V = any>(inputPromise: PromiseLike<V>, options: OpenAI.ClearablePromiseOptions) {
         const { milliseconds, message } = options
         let timer: ReturnType<typeof setTimeout> | undefined
         const wrappedPromise = new Promise<V>((resolve, reject) => {
@@ -324,7 +330,16 @@ export class Core {
     public cancelConversation(reson?: string) {
         this._abortController.abort(reson)
     }
+
+
+    public getModels() {
+        const requestInit = { method: 'POST', headers: this.headers }
+        return this._fetchSSE(this.modelUrl, requestInit)
+    }
 }
+
+
+
 
 /**
  * @desc ChatGPT 错误类
@@ -333,7 +348,7 @@ export class ChatgptError extends Error {
     status?: number;
     statusText?: string;
     url?: string;
-    constructor(message: string, option?: openai.ChatgptErrorOption) {
+    constructor(message: string, option?: OpenAI.ChatgptErrorOption) {
         super(message)
         if (option) {
             const { status, statusText, url } = option

@@ -1,14 +1,16 @@
 import GptModel from "./gpt-model";
-import TextModle from "./text-model";
-import { ChatgptError } from "./public-model";
-export { GptModel, TextModle, ChatgptError };
-export declare namespace openai {
-    export interface ErrorOption {
+import { ChatgptError } from "./core";
+export { GptModel, ChatgptError };
+export declare namespace OpenAI {
+    export type ClearablePromiseOptions = {
+        milliseconds: number;
+        message?: string;
+    };
+    export interface ChatgptErrorOption {
         status?: number;
         statusText?: string;
         url?: string;
     }
-    export type Fetch = typeof global.fetch;
     /**
      * @desc fetch 请求配置
      */
@@ -18,14 +20,14 @@ export declare namespace openai {
     /**
      * @desc 模型公共参数
      */
-    export interface ModelOptions {
+    export interface CoreOptions {
         apiKey: string;
-        /** 请求连接 default https://api.openai.com */
+        /** 请求连接 default https://api.OpenAI.com */
         apiBaseUrl?: string;
+        /** 组织 */
         organization?: string;
         /** 是否开启debug模式 */
         debug?: boolean;
-        fetch?: Fetch;
         /** @defaultValue 4096 **/
         maxModelTokens?: number;
         /** @defaultValue 1000 **/
@@ -34,6 +36,10 @@ export declare namespace openai {
         withContent?: boolean;
         /** 系统消息 */
         systemMessage?: string;
+        /** 超时时间 */
+        milliseconds?: number;
+        /** 是否将markdown语法转换成html */
+        markdown2Html?: boolean;
     }
     /**
      * @desc 公共返回usage
@@ -43,7 +49,7 @@ export declare namespace openai {
         prompt_tokens: number;
         total_tokens: number;
     }
-    export type BuildConversationMessageReturns<R extends "user" | "gpt-assistant" | "text-assistant"> = R extends 'user' ? openai.ConversationMessage : R extends 'gpt-assistant' ? openai.GptModel.AssistantConversationMessage : R extends 'text-assistant' ? openai.TextModel.AssistantConversationMessage : undefined;
+    export type BuildConversationReturns<R extends "user" | "gpt-assistant" | "text-assistant"> = R extends 'user' ? OpenAI.Conversation : R extends 'gpt-assistant' ? OpenAI.GptModel.AssistantConversation : R extends 'text-assistant' ? OpenAI.TextModel.AssistantConversation : undefined;
     export interface Response {
         /** id */
         id: string;
@@ -108,7 +114,7 @@ export declare namespace openai {
      * @param messageId 当前对话产生的id
      * @param parentMessageId 上次对话消息id
      */
-    export interface ConversationMessage {
+    export interface Conversation {
         role: "user" | 'assistant' | 'system';
         content: string;
         messageId: string;
@@ -117,13 +123,11 @@ export declare namespace openai {
     /**
      * @desc 公共发送消息选项
      */
-    export interface SendMessageOptions {
+    export interface GetAnswerOptions {
         parentMessageId?: string;
         messageId?: string;
         stream?: boolean;
         systemMessage?: string;
-        timeoutMs?: number;
-        abortSignal?: AbortSignal;
     }
     /**
      * @desc 公共角色枚举
@@ -141,12 +145,12 @@ export declare namespace openai {
      * @desc gpt 模型模块
      */
     export namespace GptModel {
-        interface RequestMessage extends Omit<openai.ConversationMessage, 'messageId' | 'parentMessageId'> {
+        interface RequestMessage extends Omit<OpenAI.Conversation, 'messageId' | 'parentMessageId'> {
         }
         /**
          * @desc 请求参数
          */
-        interface RequestParams extends openai.RequestParams {
+        interface RequestParams extends OpenAI.RequestParams {
             messages: Array<RequestMessage>;
         }
         interface ResponseMessage {
@@ -155,24 +159,24 @@ export declare namespace openai {
         }
         interface ResponseDelta extends ResponseMessage {
         }
-        interface ResponseChoice extends openai.ResponseChoice {
+        interface ResponseChoice extends OpenAI.ResponseChoice {
             message?: ResponseMessage;
             delta: ResponseDelta;
         }
         /**
          * @desc 不走steam流接口的输出结果
          */
-        interface Response extends openai.Response {
+        interface Response extends OpenAI.Response {
             choices: Array<ResponseChoice>;
         }
-        interface AssistantConversationMessage extends openai.ConversationMessage {
+        interface AssistantConversation extends OpenAI.Conversation {
             detail?: Response | null;
         }
-        interface SendMessageOptions extends openai.SendMessageOptions {
-            onProgress?: (partialResponse: AssistantConversationMessage) => void;
+        interface GetAnswerOptions extends OpenAI.GetAnswerOptions {
+            onProgress?: (partialResponse: AssistantConversation) => void;
             requestParams?: Partial<Omit<RequestParams, 'messages' | 'n' | 'stream'>>;
         }
-        interface GptModelOptions extends ModelOptions {
+        interface GptCoreOptions extends CoreOptions {
             requestParams?: Partial<Omit<RequestParams, 'messages' | 'n' | 'stream'>>;
         }
     }
@@ -180,15 +184,15 @@ export declare namespace openai {
         /**
          * @desc 发送的消息选项
          */
-        interface SendMessageOptions extends openai.SendMessageOptions {
+        interface GetAnswerOptions extends OpenAI.GetAnswerOptions {
             systemPromptPrefix?: string;
-            onProgress?: (partialResponse: AssistantConversationMessage) => void;
+            onProgress?: (partialResponse: AssistantConversation) => void;
             requestParams?: Partial<Omit<RequestParams, 'messages' | 'n' | 'stream'>>;
         }
         /**
          * @desc 请求参数
          */
-        interface RequestParams extends openai.RequestParams {
+        interface RequestParams extends OpenAI.RequestParams {
             prompt: string;
             suffix?: string;
             echo?: boolean;
@@ -197,7 +201,7 @@ export declare namespace openai {
         /**
          * @desc 请求返回
          */
-        interface Response extends openai.Response {
+        interface Response extends OpenAI.Response {
             choices: Array<ResponseChoice>;
         }
         /**
@@ -212,14 +216,14 @@ export declare namespace openai {
         /**
          * @desc 作用未知
          */
-        interface ResponseChoice extends openai.ResponseChoice {
+        interface ResponseChoice extends OpenAI.ResponseChoice {
             text?: string;
             logprobs: ResponseLogprobs | null;
         }
-        interface AssistantConversationMessage extends openai.ConversationMessage {
+        interface AssistantConversation extends OpenAI.Conversation {
             detail?: Response | null;
         }
-        interface TextModelOptions extends ModelOptions {
+        interface TextCoreOptions extends CoreOptions {
             requestParams?: Partial<RequestParams>;
             userPromptPrefix?: string;
             systemPromptPrefix?: string;

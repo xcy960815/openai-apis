@@ -1,13 +1,13 @@
 import GptModel from "./gpt-model"
-// import TextModle from "./text-model"
+import TextModle from "./text-model"
 import { ChatgptError } from "./core"
 export {
     GptModel,
-    // TextModle,
+    TextModle,
     ChatgptError
 }
 
-export namespace openai {
+export namespace OpenAI {
 
     export type ClearablePromiseOptions = {
         milliseconds: number
@@ -28,9 +28,9 @@ export namespace openai {
     /**
      * @desc 模型公共参数
      */
-    export interface ModelOptions {
+    export interface CoreOptions {
         apiKey: string;
-        /** 请求连接 default https://api.openai.com */
+        /** 请求连接 default https://api.OpenAI.com */
         apiBaseUrl?: string;
         /** 组织 */
         organization?: string;
@@ -60,13 +60,13 @@ export namespace openai {
     }
 
 
-    export type BuildConversationMessageReturns<R extends "user" | "gpt-assistant" | "text-assistant"> =
+    export type BuildConversationReturns<R extends "user" | "gpt-assistant" | "text-assistant"> =
         R extends 'user'
-        ? openai.ConversationMessage
+        ? OpenAI.Conversation
         : R extends 'gpt-assistant'
-        ? openai.GptModel.AssistantConversationMessage
+        ? OpenAI.GptModel.AssistantConversation
         : R extends 'text-assistant'
-        ? openai.TextModel.AssistantConversationMessage
+        ? OpenAI.TextModel.AssistantConversation
         : undefined;
 
 
@@ -124,7 +124,7 @@ export namespace openai {
      * @param messageId 当前对话产生的id
      * @param parentMessageId 上次对话消息id
      */
-    export interface ConversationMessage {
+    export interface Conversation {
         role: "user" | 'assistant' | 'system'
         content: string;
         messageId: string;
@@ -134,7 +134,7 @@ export namespace openai {
     /**
      * @desc 公共发送消息选项
      */
-    export interface SendMessageOptions {
+    export interface GetAnswerOptions {
         parentMessageId?: string;
         messageId?: string;
         stream?: boolean;
@@ -161,12 +161,12 @@ export namespace openai {
      * @desc gpt 模型模块
      */
     export namespace GptModel {
-        export interface RequestMessage extends Omit<openai.ConversationMessage, 'messageId' | 'parentMessageId'> { }
+        export interface RequestMessage extends Omit<OpenAI.Conversation, 'messageId' | 'parentMessageId'> { }
 
         /**
          * @desc 请求参数
          */
-        export interface RequestParams extends openai.RequestParams {
+        export interface RequestParams extends OpenAI.RequestParams {
             messages: Array<RequestMessage>;
         }
 
@@ -179,7 +179,7 @@ export namespace openai {
 
         }
 
-        export interface ResponseChoice extends openai.ResponseChoice {
+        export interface ResponseChoice extends OpenAI.ResponseChoice {
             message?: ResponseMessage;
             delta: ResponseDelta;
         }
@@ -187,44 +187,38 @@ export namespace openai {
         /**
          * @desc 不走steam流接口的输出结果
          */
-        export interface Response extends openai.Response {
+        export interface Response extends OpenAI.Response {
             choices: Array<ResponseChoice>;
             // detail?: ResponseDetail;
         }
 
-        export interface AssistantConversationMessage extends openai.ConversationMessage {
+        export interface AssistantConversation extends OpenAI.Conversation {
             detail?: Response | null;
         }
 
-        export interface SendMessageOptions extends openai.SendMessageOptions {
-            onProgress?: (partialResponse: AssistantConversationMessage) => void;
+        export interface GetAnswerOptions extends OpenAI.GetAnswerOptions {
+            onProgress?: (partialResponse: AssistantConversation) => void;
             requestParams?: Partial<Omit<RequestParams, 'messages' | 'n' | 'stream'>>;
         }
-        export interface GptModelOptions extends ModelOptions {
+        export interface GptCoreOptions extends CoreOptions {
             requestParams?: Partial<Omit<RequestParams, 'messages' | 'n' | 'stream'>>;
         }
     }
 
     export namespace TextModel {
-
-        // /**
-        //  * @desc text 模型角色枚举
-        //  */
-        // type Role = (typeof openai.RoleEnum)[Exclude<keyof typeof openai.RoleEnum, 'System'>];
-
         /**
          * @desc 发送的消息选项
          */
-        export interface SendMessageOptions extends openai.SendMessageOptions {
+        export interface GetAnswerOptions extends OpenAI.GetAnswerOptions {
             systemPromptPrefix?: string;
-            onProgress?: (partialResponse: AssistantConversationMessage) => void;
+            onProgress?: (partialResponse: AssistantConversation) => void;
             requestParams?: Partial<Omit<RequestParams, 'messages' | 'n' | 'stream'>>;
         }
 
         /**
          * @desc 请求参数
          */
-        export interface RequestParams extends openai.RequestParams {
+        export interface RequestParams extends OpenAI.RequestParams {
             prompt: string;
             suffix?: string;
             echo?: boolean;
@@ -233,7 +227,7 @@ export namespace openai {
         /**
          * @desc 请求返回
          */
-        export interface Response extends openai.Response {
+        export interface Response extends OpenAI.Response {
             choices: Array<ResponseChoice>;
         }
 
@@ -250,16 +244,16 @@ export namespace openai {
         /**
          * @desc 作用未知
          */
-        export interface ResponseChoice extends openai.ResponseChoice {
+        export interface ResponseChoice extends OpenAI.ResponseChoice {
             text?: string;
             logprobs: ResponseLogprobs | null;
         }
 
-        export interface AssistantConversationMessage extends openai.ConversationMessage {
+        export interface AssistantConversation extends OpenAI.Conversation {
             detail?: Response | null;
         }
 
-        export interface TextModelOptions extends ModelOptions {
+        export interface TextCoreOptions extends CoreOptions {
             requestParams?: Partial<RequestParams>;
             userPromptPrefix?: string;
             systemPromptPrefix?: string;
