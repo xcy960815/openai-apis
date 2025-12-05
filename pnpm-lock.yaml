@@ -69,6 +69,9 @@ importers:
       '@vue/cli-service':
         specifier: ~5.0.0
         version: 5.0.9(@vue/compiler-sfc@3.5.25)(handlebars@4.7.8)(less-loader@8.1.1(less@4.4.2)(webpack@5.103.0))(lodash@4.17.21)(prettier@2.8.8)(vue@3.5.25(typescript@5.8.2))(webpack-sources@3.3.3)
+      dotenv:
+        specifier: ^17.2.3
+        version: 17.2.3
       eslint:
         specifier: ^9.39.1
         version: 9.39.1(jiti@2.6.1)
@@ -2347,6 +2350,10 @@ packages:
   dotenv@10.0.0:
     resolution: {integrity: sha512-rlBi9d8jpv9Sf1klPjNfFAuWDjKLwTIJJ/VxtoTwIR6hnZxcEOQCZg2oIL3MWBYw5GpUDKOEnND7LXTbIpQ03Q==}
     engines: {node: '>=10'}
+
+  dotenv@17.2.3:
+    resolution: {integrity: sha512-JVUnt+DUIzu87TABbhPmNfVdBDt18BLOWjMUFJMSi/Qqg7NTYtabbvSNJGOJ7afbRuv9D/lngizHtP7QyLQ+9w==}
+    engines: {node: '>=12'}
 
   dotgitignore@2.1.0:
     resolution: {integrity: sha512-sCm11ak2oY6DglEPpCB8TixLjWAxd3kJTs6UIcSasNYxXdFPV+YKlye92c8H4kKFqV5qYMIh7d+cYecEg0dIkA==}
@@ -7947,6 +7954,8 @@ snapshots:
   dotenv-expand@5.1.0: {}
 
   dotenv@10.0.0: {}
+
+  dotenv@17.2.3: {}
 
   dotgitignore@2.1.0:
     dependencies:
