@@ -2,11 +2,18 @@
   "name": "openai-apis",
   "version": "1.0.0",
   "description": "封装openai接口",
-  "main": "dist/index.umd.js",
+  "main": "dist/index.cjs.js",
   "module": "dist/index.esm.js",
+  "exports": {
+    ".": {
+      "import": "./dist/index.esm.js",
+      "require": "./dist/index.cjs.js",
+      "types": "./types/index.d.ts"
+    }
+  },
   "scripts": {
     "dev": "vue-cli-service serve",
-    "build": "NODE_ENV=production ENV=prod rollup -c  && api-extractor run"
+    "build": "NODE_ENV=production ENV=prod rollup -c rollup.config.mjs && api-extractor run"
   },
   "repository": {
     "type": "git",
@@ -34,8 +41,11 @@
     "@commitlint/cli": "^20.2.0",
     "@commitlint/config-conventional": "^20.2.0",
     "@microsoft/api-extractor": "^7.55.1",
-    "@rollup/plugin-commonjs": "^16.0.0",
-    "@rollup/plugin-node-resolve": "^10.0.0",
+    "@rollup/plugin-babel": "^6.1.0",
+    "@rollup/plugin-commonjs": "^29.0.0",
+    "@rollup/plugin-json": "^6.1.0",
+    "@rollup/plugin-node-resolve": "^16.0.3",
+    "@rollup/plugin-terser": "^0.4.4",
     "@types/uuid": "^9.0.8",
     "@vue/cli-plugin-typescript": "~5.0.0",
     "@vue/cli-service": "~5.0.0",
@@ -45,7 +55,7 @@
     "lint-staged": "^16.2.7",
     "prettier": "^2.2.1",
     "pretty-quick": "^1.8.0",
-    "rollup": "^2.33.1",
+    "rollup": "^4.53.3",
     "rollup-plugin-babel": "^4.4.0",
     "rollup-plugin-delete": "^2.0.0",
     "rollup-plugin-livereload": "^2.0.0",

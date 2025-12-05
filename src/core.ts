@@ -1,4 +1,5 @@
 import { OpenAI } from "./index"
+import 'isomorphic-fetch'
 import { createParser } from 'eventsource-parser';
 import type { EventSourceParser } from "eventsource-parser"
 import { v4 as uuidv4 } from "uuid"
@@ -199,18 +200,24 @@ export class Core {
      * @param {ReadableStream<Uint8Array>} stream
      * @returns {AsyncIterable<Uint8Array>}
      */
-    private async *streamAsyncIterable(stream: ReadableStream<Uint8Array>): AsyncIterable<Uint8Array> {
-        const reader = stream.getReader();
-        try {
-            while (true) {
-                const { done, value } = await reader.read();
-                if (done) {
-                    return;
+    private async *streamAsyncIterable(stream: ReadableStream<Uint8Array> | AsyncIterable<Uint8Array>): AsyncIterable<Uint8Array> {
+        if ('getReader' in stream) {
+            const reader = stream.getReader();
+            try {
+                while (true) {
+                    const { done, value } = await reader.read();
+                    if (done) {
+                        return;
+                    }
+                    yield value!;
                 }
-                yield value!;
+            } finally {
+                reader.releaseLock();
             }
-        } finally {
-            reader.releaseLock();
+        } else {
+            for await (const chunk of stream) {
+                yield chunk;
+            }
         }
     }
     /**

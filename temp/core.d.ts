@@ -1,4 +1,5 @@
 import { OpenAI } from "./index";
+import 'isomorphic-fetch';
 import Gpt3Tokenizer from 'gpt3-tokenizer';
 /**
  * @description 基础类 有一些公共方法
