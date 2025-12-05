@@ -36,7 +36,9 @@ export namespace OpenAI {
         /** 系统消息 */
         systemMessage?: string;
         /** 超时时间 */
-        milliseconds?: number
+        milliseconds?: number;
+        /** 是否将markdown语法转换成html */
+        markdown2Html?: boolean;
     }
 
     /**

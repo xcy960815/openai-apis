@@ -4,6 +4,7 @@ import { createParser } from 'eventsource-parser';
 import type { EventSourceParser } from "eventsource-parser"
 import { v4 as uuidv4 } from "uuid"
 import Gpt3Tokenizer from 'gpt3-tokenizer';
+import { marked } from 'marked';
 
 /**
  * @description 基础类 有一些公共方法
@@ -36,11 +37,12 @@ export class Core {
     protected _gpt3Tokenizer: Gpt3Tokenizer;
     /** 超时时间 */
     protected _milliseconds: number
-
+    /** 是否将markdown语法转换成html */
+    protected _markdown2Html: boolean
 
     constructor(options: OpenAI.CoreOptions, who: string) {
 
-        const { apiKey, apiBaseUrl, organization, debug, withContent, maxModelTokens, maxResponseTokens, systemMessage, milliseconds } = options;
+        const { apiKey, apiBaseUrl, organization, debug, withContent, maxModelTokens, maxResponseTokens, systemMessage, milliseconds, markdown2Html } = options;
 
         this._who = who
 
@@ -67,6 +69,17 @@ export class Core {
         this._abortController = new AbortController()
 
         this._milliseconds = milliseconds ?? 1000 * 60
+
+        this._markdown2Html = !!markdown2Html
+    }
+
+    /**
+     * @desc 解析markdown
+     * @param {string} text
+     * @returns {string}
+     */
+    protected parseMarkdown(text: string): string {
+        return this._markdown2Html ? marked(text) as string : text;
     }
 
     /**
@@ -128,19 +141,20 @@ export class Core {
         content: string,
         option: OpenAI.GetAnswerOptions
     ): OpenAI.BuildConversationReturns<R> {
+        const _content = this.parseMarkdown(content);
         if (role === 'user') {
             return {
                 role: "user",
                 messageId: option.messageId || this.uuid,
                 parentMessageId: option.parentMessageId,
-                content,
+                content: _content,
             } as OpenAI.BuildConversationReturns<R>;
         } else if (role === 'gpt-assistant' || role === 'text-assistant') {
             return {
                 role: "assistant",
                 messageId: "",
                 parentMessageId: option.messageId || this.uuid,
-                content,
+                content: _content,
                 detail: null
             } as OpenAI.BuildConversationReturns<R>;
         } else {

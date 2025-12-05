@@ -52,6 +52,7 @@ export default class GptModel extends Core {
     await this.upsertConversation(userMessage);
     // 构建助手消息
     const assistantMessage = this.buildConversation('gpt-assistant', "", { ...options, messageId: userMessage.messageId })
+    let rawContent = "";
     // 包装成一个promise 发起请求
     const responseP = new Promise<OpenAI.GptModel.AssistantConversation>(async (resolve, reject) => {
       try {
@@ -67,8 +68,8 @@ export default class GptModel extends Core {
             if (response?.choices?.length) {
               const delta = response.choices[0].delta;
               if (delta?.content) {
-                assistantMessage.content += delta.content;
-
+                rawContent += delta.content;
+                assistantMessage.content = this.parseMarkdown(rawContent);
               }
               assistantMessage.detail = response;
               if (delta?.role) {
@@ -87,7 +88,8 @@ export default class GptModel extends Core {
           }
           if (data?.choices?.length) {
             const message = data.choices[0].message;
-            assistantMessage.content = message?.content || '';
+            const content = message?.content || '';
+            assistantMessage.content = this.parseMarkdown(content);
             assistantMessage.role = message?.role || 'assistant';
           }
           assistantMessage.detail = data;

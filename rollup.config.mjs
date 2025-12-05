@@ -51,5 +51,5 @@ export default {
     }),
     sourceMaps(),
   ],
-  external:["crypto"]
+  external:["crypto", "eventsource-parser", "gpt3-tokenizer", "isomorphic-fetch", "marked", "uuid"]
 };

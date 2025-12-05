@@ -41,6 +41,8 @@ export declare class Core {
     protected _gpt3Tokenizer: Gpt3Tokenizer;
     /** 超时时间 */
     protected _milliseconds: number;
+    /** 是否将markdown语法转换成html */
+    protected _markdown2Html: boolean;
     constructor(options: OpenAI.CoreOptions, who: string);
     /**
      * @desc completions请求地址
@@ -201,6 +203,8 @@ export declare namespace OpenAI {
         systemMessage?: string;
         /** 超时时间 */
         milliseconds?: number;
+        /** 是否将markdown语法转换成html */
+        markdown2Html?: boolean;
     }
     /**
      * @desc 公共返回usage
