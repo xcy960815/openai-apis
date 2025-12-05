@@ -84,7 +84,7 @@ export default class TextModle extends Core {
             if (stream) {
                 requestInit.onMessage = (data: string) => {
                     if (data === '[DONE]') {
-                        assistantMessage.content = assistantMessage.content.trim();
+                        assistantMessage.content = (assistantMessage.content || '').trim();
                         resolve(assistantMessage);
                         return;
                     }
@@ -95,7 +95,7 @@ export default class TextModle extends Core {
                         }
                         if (response?.choices?.length) {
                             // 这个模型返回的数据是一个字一个字返回的 需要累加操作
-                            assistantMessage.content += response.choices[0].text;
+                            assistantMessage.content = (assistantMessage.content || '') + response.choices[0].text;
 
                             assistantMessage.detail = response;
                             onProgress?.(assistantMessage);

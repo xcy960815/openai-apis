@@ -40,7 +40,7 @@ const getAnswerByGptModel = async (parentMessageId?: string) => {
     parentMessageId,
     onProgress: (partialResponse) => {
       const answerDome = document.getElementById('answer-demo') as HTMLDivElement;
-      answerDome.innerHTML = partialResponse.content;
+      answerDome.innerHTML = partialResponse.content || '';
     },
   });
 };
@@ -52,7 +52,7 @@ const getAnswerByTextModel = async (parentMessageId?: string) => {
       parentMessageId,
       onProgress: (partialResponse) => {
         const answerDome = document.getElementById('answer-demo') as HTMLDivElement;
-        answerDome.innerHTML = partialResponse.content;
+        answerDome.innerHTML = partialResponse.content || '';
       },
     })
     .catch((error: ChatgptError) => {

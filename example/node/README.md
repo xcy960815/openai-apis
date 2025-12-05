@@ -23,3 +23,9 @@ Starts an interactive command-line interface where you can chat with the AI.
 ```bash
 npm run example:node:cli
 ```
+
+### Run Function Calling Example
+Demonstrates how to use OpenAI Function Calling (Tools).
+```bash
+npm run example:node:fc
+```

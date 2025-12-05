@@ -47,7 +47,11 @@ export default class GptModel extends Core {
   public async getAnswer(question: string, options: OpenAI.GptModel.GetAnswerOptions): Promise<OpenAI.GptModel.AssistantConversation> {
     const { onProgress, stream = onProgress ? true : false } = options
     // 构建用户消息
-    const userMessage = this.buildConversation("user", question, options)
+    const role = options.role || 'user';
+    const userMessage = this.buildConversation(role, question, options);
+    if (!userMessage) {
+        throw new Error('Failed to build conversation message');
+    }
     // 保存用户对话
     await this.upsertConversation(userMessage);
     // 构建助手消息
@@ -60,7 +64,7 @@ export default class GptModel extends Core {
         if (stream) {
           requestInit.onMessage = (data: string) => {
             if (data === '[DONE]') {
-              assistantMessage.content = assistantMessage.content.trim();
+              assistantMessage.content = (assistantMessage.content || '').trim();
               return resolve(assistantMessage)
             }
             const response: OpenAI.GptModel.Response = JSON.parse(data);
@@ -70,6 +74,18 @@ export default class GptModel extends Core {
               if (delta?.content) {
                 rawContent += delta.content;
                 assistantMessage.content = this.parseMarkdown(rawContent);
+              }
+              if (delta?.tool_calls) {
+                  if (!assistantMessage.tool_calls) {
+                      assistantMessage.tool_calls = [];
+                  }
+                  delta.tool_calls.forEach((toolCall, index) => {
+                      if (!assistantMessage.tool_calls![index]) {
+                          assistantMessage.tool_calls![index] = toolCall;
+                      } else {
+                          assistantMessage.tool_calls![index].function.arguments += toolCall.function.arguments;
+                      }
+                  });
               }
               assistantMessage.detail = response;
               if (delta?.role) {
@@ -91,6 +107,9 @@ export default class GptModel extends Core {
             const content = message?.content || '';
             assistantMessage.content = this.parseMarkdown(content);
             assistantMessage.role = message?.role || 'assistant';
+            if (message?.tool_calls) {
+                assistantMessage.tool_calls = message.tool_calls;
+            }
           }
           assistantMessage.detail = data;
           resolve(assistantMessage);

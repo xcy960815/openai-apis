@@ -22,7 +22,8 @@
     "lint": "eslint src --ext .ts",
     "test": "jest",
     "example:node": "npx -y ts-node -O '{\"module\":\"commonjs\"}' example/node/index.ts",
-    "example:node:cli": "npx -y ts-node -O '{\"module\":\"commonjs\"}' example/node/cli.ts"
+    "example:node:cli": "npx -y ts-node -O '{\"module\":\"commonjs\"}' example/node/cli.ts",
+    "example:node:fc": "npx -y ts-node -O '{\"module\":\"commonjs\"}' example/node/function-calling.ts"
   },
   "repository": {
     "type": "git",
