@@ -23,7 +23,7 @@ export default class TextModle extends Core {
      * @param {OpenAI.TextModel.GetAnswerOptions} options
      * @returns {Promise<OpenAI.TextModel.AssistantConversation>}
      */
-    sendMessage(text: string, options: OpenAI.TextModel.GetAnswerOptions): Promise<OpenAI.TextModel.AssistantConversation>;
+    getAnswer(text: string, options: OpenAI.TextModel.GetAnswerOptions): Promise<OpenAI.TextModel.AssistantConversation>;
     /**
      * @desc 构建 prompt 获取 maxTokens
      * @param {string} message

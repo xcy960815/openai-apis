@@ -68,11 +68,7 @@ export default class GptModel extends Core {
               const delta = response.choices[0].delta;
               if (delta?.content) {
                 assistantMessage.content += delta.content;
-                if (this._markdown2Html) {
-                  this._markdownToHtml(assistantMessage.content).then((content) => {
-                    assistantMessage.content = content
-                  })
-                }
+
               }
               assistantMessage.detail = response;
               if (delta?.role) {
@@ -141,23 +137,20 @@ export default class GptModel extends Core {
       },
     ];
 
+    // 预先计算必须包含的消息（System + User）的 Token
     let tokenCount = 0;
-    let prompt = ""
+    const systemMessageStr = messages[0].role + messages[0].content;
+    const userMessageStr = messages[1].role + messages[1].content;
+    
+    // 基础 Token 数（包含 System 和 User）
+    tokenCount = await this.getTokenCount(systemMessageStr) + await this.getTokenCount(userMessageStr);
 
     while (true && this._withContent) {
-
-      // 计算
-      messages.forEach(item => {
-        prompt += item.role
-        prompt += item.content
-      })
-
-      tokenCount = await this.getTokenCount(prompt);
-
-      // 当前 prompt token 数量大于最大 token 数量时，不再向上查找
-      if (prompt && tokenCount > maxTokenCount) {
+      // 如果基础 Token 已经超过限制，直接跳出（虽然理论上不应该发生，除非 system/user 极其长）
+      if (tokenCount > maxTokenCount) {
         break;
       }
+
       if (!parentMessageId) { break; }
 
       const parentMessage = await this.getConversation(parentMessageId);
@@ -168,7 +161,18 @@ export default class GptModel extends Core {
         role: parentMessage.role,
         content: parentMessage.content,
       }
-      // 插入会话消息
+      
+      // 计算当前历史消息的 Token
+      const historyMessageStr = historyConversation.role + historyConversation.content;
+      const historyTokenCount = await this.getTokenCount(historyMessageStr);
+
+      // 如果加上这条历史消息会超出限制，则停止添加
+      if (tokenCount + historyTokenCount > maxTokenCount) {
+        break;
+      }
+
+      // 累加 Token 并插入消息
+      tokenCount += historyTokenCount;
       messages.splice(1, 0, historyConversation);
 
       // 上次对话id

@@ -1,10 +1,11 @@
 import GptModel from "./gpt-model"
 import TextModle from "./text-model"
-import { ChatgptError } from "./core"
+import { ChatgptError, Core } from "./core"
 export {
     GptModel,
     TextModle,
-    ChatgptError
+    ChatgptError,
+    Core
 }
 
 export namespace OpenAI {
@@ -46,8 +47,6 @@ export namespace OpenAI {
         systemMessage?: string;
         /** 超时时间 */
         milliseconds?: number
-        /** 是否将markdown语法转换成html */
-        markdown2Html?: boolean
     }
 
     /**

@@ -2,7 +2,7 @@ import { OpenAI } from "./index";
 import Gpt3Tokenizer from 'gpt3-tokenizer';
 /**
  * @description 基础类 有一些公共方法
- * @internal
+
  */
 export declare class Core {
     /** 用于区分是哪个模型的继承 返回不同请求地址 */
@@ -31,14 +31,17 @@ export declare class Core {
     protected _gpt3Tokenizer: Gpt3Tokenizer;
     /** 超时时间 */
     protected _milliseconds: number;
-    /** 是否开启markdown转html */
-    protected _markdown2Html: boolean;
     constructor(options: OpenAI.CoreOptions, who: string);
     /**
-     * @desc 请求地址
+     * @desc completions请求地址
      * @returns {string}
      */
-    protected get url(): string;
+    protected get completionsUrl(): string;
+    /**
+     * @desc models 请求地址
+     * @returns {string}
+     */
+    private get modelUrl();
     /**
      * @desc 生成随机id
      * @returns {string}
@@ -110,12 +113,6 @@ export declare class Core {
      */
     private _createParser;
     /**
-     * @desc 解析markdown语法装换成html语法
-     * @param {string} content
-     * @returns {string}
-     */
-    protected _markdownToHtml(content: string): Promise<string>;
-    /**
      * @description 清空promise
      */
     protected clearablePromise<V = any>(inputPromise: PromiseLike<V>, options: OpenAI.ClearablePromiseOptions): Promise<V>;
@@ -125,6 +122,7 @@ export declare class Core {
      * @returns {void}
      */
     cancelConversation(reson?: string): void;
+    getModels(): Promise<void | OpenAI.AnswerResponse<Object>>;
 }
 /**
  * @desc ChatGPT 错误类

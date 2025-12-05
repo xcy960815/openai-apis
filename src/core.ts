@@ -3,24 +3,10 @@ import { createParser } from 'eventsource-parser';
 import type { EventSourceParser } from "eventsource-parser"
 import { v4 as uuidv4 } from "uuid"
 import Gpt3Tokenizer from 'gpt3-tokenizer';
-import { marked } from "marked"
 
-marked.setOptions({
-    renderer: new marked.Renderer(),
-    // highlight: function (code, _lang) {
-    //   return hljs.highlightAuto(code).value;
-    // },
-    // langPrefix: 'hljs language-',
-    pedantic: false,
-    gfm: true,
-    breaks: true,
-    // sanitize: false,
-    // smartypants: false,
-    // xhtml: false,
-});
 /**
  * @description 基础类 有一些公共方法
- * @internal
+
  */
 export class Core {
     /** 用于区分是哪个模型的继承 返回不同请求地址 */
@@ -49,12 +35,11 @@ export class Core {
     protected _gpt3Tokenizer: Gpt3Tokenizer;
     /** 超时时间 */
     protected _milliseconds: number
-    /** 是否开启markdown转html */
-    protected _markdown2Html: boolean
+
 
     constructor(options: OpenAI.CoreOptions, who: string) {
 
-        const { apiKey, apiBaseUrl, organization, debug, withContent, maxModelTokens, maxResponseTokens, systemMessage, milliseconds, markdown2Html } = options;
+        const { apiKey, apiBaseUrl, organization, debug, withContent, maxModelTokens, maxResponseTokens, systemMessage, milliseconds } = options;
 
         this._who = who
 
@@ -66,7 +51,7 @@ export class Core {
 
         this._debug = !!debug;
 
-        this._withContent = withContent === undefined ?? withContent;
+        this._withContent = withContent ?? true;
 
         this._maxModelTokens = maxModelTokens ?? 4096;
 
@@ -81,8 +66,6 @@ export class Core {
         this._abortController = new AbortController()
 
         this._milliseconds = milliseconds ?? 1000 * 60
-
-        this._markdown2Html = markdown2Html ?? false
     }
 
     /**
@@ -246,8 +229,19 @@ export class Core {
                 status: response.status,
                 statusText: response.statusText
             }
-            const { error } = JSON.parse(await response.text())
-            throw new ChatgptError(error.message, errorOption)
+            let errorMsg = response.statusText;
+            try {
+                const data = await response.text();
+                const json = JSON.parse(data);
+                if (json.error && json.error.message) {
+                    errorMsg = json.error.message;
+                } else {
+                    errorMsg = data;
+                }
+            } catch (e) {
+                // ignore json parse error, use statusText
+            }
+            throw new ChatgptError(errorMsg, errorOption)
         }
         // 如果没有 onMessage 回调函数，直接返回 response
         if (!onMessage) {
@@ -273,15 +267,7 @@ export class Core {
         })
     };
 
-    /**
-     * @desc 解析markdown语法装换成html语法
-     * @param {string} content
-     * @returns {string}
-     */
-    protected async _markdownToHtml(content: string): Promise<string> {
-        const html = await marked.parse(content);
-        return html
-    }
+
 
     /**
      * @description 清空promise

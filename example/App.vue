@@ -15,7 +15,7 @@ const textModel = new TextModle({
   apiBaseUrl: 'abc',
   withContent: true,
   // systemMessage
-  markdown2Html: true,
+
   requestParams: {
     // model:""，
   },
@@ -26,7 +26,7 @@ const gptModel = new GptModel({
   apiBaseUrl: 'abc',
   withContent: true,
   milliseconds: 10000,
-  markdown2Html: true,
+
   requestParams: {
     model: 'gpt-3.5-turbo',
   },

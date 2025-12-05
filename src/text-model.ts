@@ -1,7 +1,7 @@
 import { OpenAI } from "./index"
 import { Core } from "./core"
 
-const MODEL = 'text-davinci-003';
+const MODEL = 'gpt-3.5-turbo-instruct';
 const USER_PROMPT_PREFIX = 'User';
 const SYSTEM_PROMPT_PREFIX_DEFAULT = 'ChatGPT';
 
@@ -96,11 +96,7 @@ export default class TextModle extends Core {
                         if (response?.choices?.length) {
                             // 这个模型返回的数据是一个字一个字返回的 需要累加操作
                             assistantMessage.content += response.choices[0].text;
-                            if (this._markdown2Html) {
-                                this._markdownToHtml(assistantMessage.content).then((content) => {
-                                    assistantMessage.content = content
-                                })
-                            }
+
                             assistantMessage.detail = response;
                             onProgress?.(assistantMessage);
                         }
@@ -122,11 +118,7 @@ export default class TextModle extends Core {
                     if (data?.choices?.length) {
                         assistantMessage.content = data?.choices[0]?.text?.trim() || '';
 
-                        if (this._markdown2Html) {
-                            this._markdownToHtml(assistantMessage.content).then((content) => {
-                                assistantMessage.content = content
-                            })
-                        }
+
                     }
                     assistantMessage.detail = data;
 
@@ -168,15 +160,16 @@ export default class TextModle extends Core {
         // 历史消息
         let historyPrompt = '';
 
-        let tokenCount = 0;
+        // 基础 Prompt (System + User + Prefix)
+        const basePrompt = `${systemMessage}${currentUserPrompt}${systemPromptPrefix}`;
+        let tokenCount = await this.getTokenCount(basePrompt);
 
         while (true && this._withContent) {
-            const prompt = `${systemMessage}${historyPrompt}${currentUserPrompt}${systemPromptPrefix}`;
-            tokenCount = await this.getTokenCount(prompt);
-            // 当前 prompt token 数量大于最大 token 数量时，不再向上查找
-            if (prompt && tokenCount > maxTokenCount) {
+            // 如果基础 Token 已经超过限制，直接跳出
+            if (tokenCount > maxTokenCount) {
                 break;
             }
+
             if (!parentMessageId) {
                 break;
             }
@@ -186,9 +179,22 @@ export default class TextModle extends Core {
             };
             const parentMessageRole = parentMessage.role;
             const parentMessagePromptPrefix = parentMessageRole === 'user' ? this._userPromptPrefix : this._systemPromptPrefix;
-            // 历史消息
+            
+            // 历史消息片段
             const parentMessagePrompt = `${parentMessagePromptPrefix}:${parentMessage.content}${this._endToken}`;
+            
+            // 计算片段 Token
+            const partTokenCount = await this.getTokenCount(parentMessagePrompt);
+
+            // 检查是否超限
+            if (tokenCount + partTokenCount > maxTokenCount) {
+                break;
+            }
+
+            // 累加 Token 并拼接历史
+            tokenCount += partTokenCount;
             historyPrompt = `${parentMessagePrompt}${historyPrompt}`;
+            
             parentMessageId = parentMessage.parentMessageId;
         }
 

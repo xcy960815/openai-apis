@@ -1,6 +1,7 @@
 import GptModel from "./gpt-model";
-import { ChatgptError } from "./core";
-export { GptModel, ChatgptError };
+import TextModle from "./text-model";
+import { ChatgptError, Core } from "./core";
+export { GptModel, TextModle, ChatgptError, Core };
 export declare namespace OpenAI {
     export type ClearablePromiseOptions = {
         milliseconds: number;
@@ -38,8 +39,6 @@ export declare namespace OpenAI {
         systemMessage?: string;
         /** 超时时间 */
         milliseconds?: number;
-        /** 是否将markdown语法转换成html */
-        markdown2Html?: boolean;
     }
     /**
      * @desc 公共返回usage

@@ -7,14 +7,14 @@ export declare class ChatgptError extends Error {
     status?: number;
     statusText?: string;
     url?: string;
-    constructor(message: string, option?: OpenAI.ChatgptErrorOption);
+    constructor(message: string, option?: OpenAI.ChatgptErrorOptions);
 }
 
 /**
  * @description 基础类 有一些公共方法
- * @internal
+
  */
-declare class Core {
+export declare class Core {
     /** 用于区分是哪个模型的继承 返回不同请求地址 */
     private _who;
     /** gpt 对话key */
@@ -41,14 +41,17 @@ declare class Core {
     protected _gpt3Tokenizer: Gpt3Tokenizer;
     /** 超时时间 */
     protected _milliseconds: number;
-    /** 是否开启markdown转html */
-    protected _markdown2Html: boolean;
     constructor(options: OpenAI.CoreOptions, who: string);
     /**
-     * @desc 请求地址
+     * @desc completions请求地址
      * @returns {string}
      */
-    protected get url(): string;
+    protected get completionsUrl(): string;
+    /**
+     * @desc models 请求地址
+     * @returns {string}
+     */
+    private get modelUrl();
     /**
      * @desc 生成随机id
      * @returns {string}
@@ -120,12 +123,6 @@ declare class Core {
      */
     private _createParser;
     /**
-     * @desc 解析markdown语法装换成html语法
-     * @param {string} content
-     * @returns {string}
-     */
-    protected _markdownToHtml(content: string): Promise<string>;
-    /**
      * @description 清空promise
      */
     protected clearablePromise<V = any>(inputPromise: PromiseLike<V>, options: OpenAI.ClearablePromiseOptions): Promise<V>;
@@ -135,6 +132,7 @@ declare class Core {
      * @returns {void}
      */
     cancelConversation(reson?: string): void;
+    getModels(): Promise<void | OpenAI.AnswerResponse<Object>>;
 }
 
 export declare class GptModel extends Core {
@@ -171,7 +169,7 @@ export declare namespace OpenAI {
         milliseconds: number;
         message?: string;
     };
-    export interface ChatgptErrorOption {
+    export interface ChatgptErrorOptions {
         status?: number;
         statusText?: string;
         url?: string;
@@ -203,8 +201,6 @@ export declare namespace OpenAI {
         systemMessage?: string;
         /** 超时时间 */
         milliseconds?: number;
-        /** 是否将markdown语法转换成html */
-        markdown2Html?: boolean;
     }
     /**
      * @desc 公共返回usage
@@ -280,7 +276,7 @@ export declare namespace OpenAI {
      * @param parentMessageId 上次对话消息id
      */
     export interface Conversation {
-        role: "user" | 'assistant' | 'system';
+        role: Role;
         content: string;
         messageId: string;
         parentMessageId: string;
@@ -394,6 +390,40 @@ export declare namespace OpenAI {
             systemPromptPrefix?: string;
         }
     }
+
 }
 
-export { }
+export declare class TextModle extends Core {
+    /** 默认请求参数 */
+    private _requestParams;
+    /** 用户提示前缀 */
+    private _userPromptPrefix;
+    /** 系统提示前缀 */
+    private _systemPromptPrefix;
+    /** 会话接口标识符 */
+    private _endToken;
+    constructor(options: OpenAI.TextModel.TextCoreOptions);
+    /**
+     * @description 构建fetch公共请求参数
+     * @param {string} question
+     * @param {OpenAI.GptModel.GetAnswerOptions} options
+     * @returns {Promise<OpenAI.FetchRequestInit>}
+     */
+    private _getFetchRequestInit;
+    /**
+     * @desc 发送请求到OpenAI
+     * @param {string} text
+     * @param {OpenAI.TextModel.GetAnswerOptions} options
+     * @returns {Promise<OpenAI.TextModel.AssistantConversation>}
+     */
+    getAnswer(text: string, options: OpenAI.TextModel.GetAnswerOptions): Promise<OpenAI.TextModel.AssistantConversation>;
+    /**
+     * @desc 构建 prompt 获取 maxTokens
+     * @param {string} message
+     * @param {OpenAI.TextModel.SendMessageOptions} options
+     * @returns {Promise<{prompt: string, maxTokens: number}>
+         */
+     private _getConversationHistory;
+    }
+
+    export { }
