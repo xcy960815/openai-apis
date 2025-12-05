@@ -4,15 +4,18 @@
 
 [![npm version](https://img.shields.io/npm/v/openai-apis.svg)](https://www.npmjs.com/package/openai-apis)
 [![license](https://img.shields.io/npm/l/openai-apis.svg)](https://github.com/xcy960815/openai-apis/blob/main/LICENSE)
+[![CI](https://github.com/xcy960815/openai-apis/actions/workflows/ci.yml/badge.svg)](https://github.com/xcy960815/openai-apis/actions/workflows/ci.yml)
 
 ## ✨ 特性
 
 - 🚀 **简单易用**：开箱即用，API 设计直观。
 - 🌊 **流式响应**：完美支持 Server-Sent Events (SSE)，实时获取 AI 回复。
 - 🧠 **上下文管理**：自动维护对话历史，轻松实现多轮对话。
+- 📝 **Markdown 转 HTML**：内置 Markdown 解析器，可直接输出 HTML 格式。
 - 🔢 **Token 计算**：内置 Token 计算器，自动管理上下文长度，防止超额。
 - 🌐 **多端支持**：同时支持 Node.js (14+) 和 浏览器环境。
 - 📘 **TypeScript**：提供完整的类型定义，开发体验极佳。
+- ✅ **可靠性**：拥有完善的单元测试和 CI/CD 流程。
 
 ## 📦 安装
 
@@ -36,11 +39,12 @@ import { GptModel } from 'openai-apis';
 const gpt = new GptModel({
   apiKey: 'your-api-key', // 你的 OpenAI API Key
   debug: true, // 开启调试模式
+  markdown2Html: true, // 可选：将 AI 回复的 Markdown 转换为 HTML
 });
 
 async function main() {
   const res = await gpt.getAnswer('你好，请介绍一下你自己');
-  console.log(res.content);
+  console.log(res.content); // 如果开启了 markdown2Html，这里输出的是 HTML
 }
 
 main();
@@ -97,6 +101,7 @@ async function chat() {
 | `apiKey` | `string` | - | **必填**。OpenAI API Key |
 | `apiBaseUrl` | `string` | `https://api.openai.com` | API 基础地址，可配置代理地址 |
 | `debug` | `boolean` | `false` | 是否开启调试日志 |
+| `markdown2Html` | `boolean` | `false` | 是否将 Markdown 转换为 HTML |
 | `systemMessage` | `string` | (默认提示词) | 系统预设角色/提示词 |
 | `maxModelTokens` | `number` | `4096` | 模型最大 Token 数 |
 | `maxResponseTokens` | `number` | `1000` | 回复最大 Token 数 |
