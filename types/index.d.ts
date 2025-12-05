@@ -7,7 +7,7 @@ export declare class ChatgptError extends Error {
     status?: number;
     statusText?: string;
     url?: string;
-    constructor(message: string, option?: OpenAI.ChatgptErrorOptions);
+    constructor(message: string, option?: OpenAI.ChatgptErrorOption);
 }
 
 /**
@@ -169,7 +169,7 @@ export declare namespace OpenAI {
         milliseconds: number;
         message?: string;
     };
-    export interface ChatgptErrorOptions {
+    export interface ChatgptErrorOption {
         status?: number;
         statusText?: string;
         url?: string;
@@ -276,7 +276,7 @@ export declare namespace OpenAI {
      * @param parentMessageId 上次对话消息id
      */
     export interface Conversation {
-        role: Role;
+        role: "user" | 'assistant' | 'system';
         content: string;
         messageId: string;
         parentMessageId: string;
@@ -293,12 +293,12 @@ export declare namespace OpenAI {
     /**
      * @desc 公共角色枚举
      */
-    const RoleEnum: {
-        readonly System: "system";
-        readonly User: "user";
-        readonly Assistant: "assistant";
-    };
-    export type Role = (typeof RoleEnum)[keyof typeof RoleEnum];
+    export enum RoleEnum {
+        System = "system",
+        User = "user",
+        Assistant = "assistant"
+    }
+    export type Role = 'system' | 'user' | 'assistant';
     export interface AnswerResponse<T = any> extends globalThis.Response {
         json(): Promise<T>;
     }
@@ -390,7 +390,6 @@ export declare namespace OpenAI {
             systemPromptPrefix?: string;
         }
     }
-
 }
 
 export declare class TextModle extends Core {

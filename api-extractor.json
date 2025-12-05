@@ -1,6 +1,3 @@
-/**
- * Config file for API Extractor.  For more info, please visit: https://api-extractor.com
- */
 {
   "$schema": "https://developer.microsoft.com/json-schemas/api-extractor/v7/api-extractor.schema.json",
   "mainEntryPointFilePath": "./temp/index.d.ts",
@@ -16,7 +13,7 @@
   },
   "dtsRollup": {
     "enabled": true,
-    "untrimmedFilePath": "./types/index.d.ts" // 生成到指定的文件件内叫指定的文件名
+    "untrimmedFilePath": "./types/index.d.ts"
   },
   "tsdocMetadata": {
     "enabled": false
