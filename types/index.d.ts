@@ -45,6 +45,12 @@ export declare class Core {
     protected _markdown2Html: boolean;
     constructor(options: OpenAI.CoreOptions, who: string);
     /**
+     * @desc 解析markdown
+     * @param {string} text
+     * @returns {string}
+     */
+    protected parseMarkdown(text: string): string;
+    /**
      * @desc completions请求地址
      * @returns {string}
      */
@@ -77,7 +83,7 @@ export declare class Core {
      * @param {OpenAI.SendMessageOptions} option
      * @returns {OpenAI.Conversation}
      */
-    protected buildConversation<R extends "user" | "gpt-assistant" | "text-assistant">(role: R, content: string, option: OpenAI.GetAnswerOptions): OpenAI.BuildConversationReturns<R>;
+    protected buildConversation<R extends OpenAI.Role | "gpt-assistant" | "text-assistant">(role: R, content: string, option: OpenAI.GetAnswerOptions): OpenAI.BuildConversationReturns<R>;
     /**
      * @desc 获取对话
      * @param {string} id
@@ -214,7 +220,7 @@ export declare namespace OpenAI {
         prompt_tokens: number;
         total_tokens: number;
     }
-    export type BuildConversationReturns<R extends "user" | "gpt-assistant" | "text-assistant"> = R extends 'user' ? OpenAI.Conversation : R extends 'gpt-assistant' ? OpenAI.GptModel.AssistantConversation : R extends 'text-assistant' ? OpenAI.TextModel.AssistantConversation : undefined;
+    export type BuildConversationReturns<R extends Role | "gpt-assistant" | "text-assistant"> = R extends 'user' ? OpenAI.Conversation : R extends 'gpt-assistant' ? OpenAI.GptModel.AssistantConversation : R extends 'text-assistant' ? OpenAI.TextModel.AssistantConversation : R extends 'tool' ? OpenAI.Conversation : R extends 'function' ? OpenAI.Conversation : undefined;
     export interface Response {
         /** id */
         id: string;
@@ -243,6 +249,13 @@ export declare namespace OpenAI {
         presence_penalty?: number | null;
         frequency_penalty?: number | null;
         user?: string;
+        tools?: Array<Tool>;
+        tool_choice?: string | {
+            type: 'function';
+            function: {
+                name: string;
+            };
+        };
     }
     /**
      * @desc 公共返回的Choice参数
@@ -280,10 +293,14 @@ export declare namespace OpenAI {
      * @param parentMessageId 上次对话消息id
      */
     export interface Conversation {
-        role: "user" | 'assistant' | 'system';
-        content: string;
+        role: Role;
+        content: string | null;
         messageId: string;
         parentMessageId: string;
+        name?: string;
+        tool_calls?: Array<ToolCall>;
+        tool_call_id?: string;
+        function_call?: FunctionCall;
     }
     /**
      * @desc 公共发送消息选项
@@ -293,6 +310,9 @@ export declare namespace OpenAI {
         messageId?: string;
         stream?: boolean;
         systemMessage?: string;
+        role?: Role;
+        tool_call_id?: string;
+        name?: string;
     }
     /**
      * @desc 公共角色枚举
@@ -302,7 +322,37 @@ export declare namespace OpenAI {
         User = "user",
         Assistant = "assistant"
     }
-    export type Role = 'system' | 'user' | 'assistant';
+    export type Role = 'system' | 'user' | 'assistant' | 'tool' | 'function';
+    /**
+     * @desc Function definition
+     */
+    export interface FunctionDef {
+        name: string;
+        description?: string;
+        parameters?: Record<string, any>;
+    }
+    /**
+     * @desc Tool definition
+     */
+    export interface Tool {
+        type: 'function';
+        function: FunctionDef;
+    }
+    /**
+     * @desc Tool call in response
+     */
+    export interface ToolCall {
+        id: string;
+        type: 'function';
+        function: {
+            name: string;
+            arguments: string;
+        };
+    }
+    export interface FunctionCall {
+        name: string;
+        arguments: string;
+    }
     export interface AnswerResponse<T = any> extends globalThis.Response {
         json(): Promise<T>;
     }
@@ -320,9 +370,11 @@ export declare namespace OpenAI {
         }
         export interface ResponseMessage {
             role: Role;
-            content: string;
+            content: string | null;
+            tool_calls?: Array<ToolCall>;
         }
         export interface ResponseDelta extends ResponseMessage {
+            tool_calls?: Array<ToolCall>;
         }
         export interface ResponseChoice extends OpenAI.ResponseChoice {
             message?: ResponseMessage;
