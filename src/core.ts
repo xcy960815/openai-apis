@@ -136,18 +136,20 @@ export class Core {
      * @param {OpenAI.SendMessageOptions} option 
      * @returns {OpenAI.Conversation}
      */
-    protected buildConversation<R extends "user" | "gpt-assistant" | "text-assistant">(
+    protected buildConversation<R extends OpenAI.Role | "gpt-assistant" | "text-assistant">(
         role: R,
         content: string,
         option: OpenAI.GetAnswerOptions
     ): OpenAI.BuildConversationReturns<R> {
         const _content = this.parseMarkdown(content);
-        if (role === 'user') {
+        if (role === 'user' || role === 'tool' || role === 'function' || role === 'system') {
             return {
-                role: "user",
+                role: role as OpenAI.Role,
                 messageId: option.messageId || this.uuid,
                 parentMessageId: option.parentMessageId,
                 content: _content,
+                tool_call_id: option.tool_call_id,
+                name: option.name,
             } as OpenAI.BuildConversationReturns<R>;
         } else if (role === 'gpt-assistant' || role === 'text-assistant') {
             return {
@@ -158,7 +160,7 @@ export class Core {
                 detail: null
             } as OpenAI.BuildConversationReturns<R>;
         } else {
-            return undefined as OpenAI.BuildConversationReturns<R>;
+            return undefined as unknown as OpenAI.BuildConversationReturns<R>;
         }
     }
 
@@ -242,7 +244,7 @@ export class Core {
      */
     protected async _fetchSSE<R extends Object>(url: string, requestInit: OpenAI.FetchRequestInit): Promise<OpenAI.AnswerResponse<R> | void> {
         const { onMessage, ...fetchOptions } = requestInit;
-        const response = await fetch(url, { ...fetchOptions }) as OpenAI.AnswerResponse<R>
+        const response = await fetch(url, { signal: this._abortController.signal, ...fetchOptions }) as OpenAI.AnswerResponse<R>
         if (!response.ok) {
             // 走到这一步是OpenAI接口错误的时候 如果其他后端应用封装了OpenAI接口即使发生错误也不一定 走到这步 
             const errorOption: OpenAI.ChatgptErrorOption = {
@@ -305,6 +307,7 @@ export class Core {
                 timer = setTimeout.call(undefined, () => {
                     // 终止请求
                     this._abortController.abort()
+                    this._abortController = new AbortController()
                     const errorMessage = message ?? `Promise timed out after ${milliseconds} milliseconds`
                     const timeoutError = new ChatgptError(errorMessage)
                     reject(timeoutError)
@@ -336,6 +339,7 @@ export class Core {
      */
     public cancelConversation(reson?: string) {
         this._abortController.abort(reson)
+        this._abortController = new AbortController()
     }
 
 
