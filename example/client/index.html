@@ -1,0 +1,393 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DeepSeek Chat Demo</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+            background-color: #f5f5f5;
+        }
+
+        .chat-container {
+            width: 900px;
+            margin: 20px auto;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            height: 90vh;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            position: relative;
+        }
+
+        .header {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin-bottom: 20px;
+            position: relative;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .header h2 {
+            color: #333;
+            margin: 0;
+        }
+
+        .settings-btn {
+            position: absolute;
+            right: 0;
+            background: none;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            padding: 5px;
+            border-radius: 50%;
+            transition: background-color 0.2s;
+        }
+
+        .settings-btn:hover {
+            background-color: #f0f0f0;
+        }
+
+        .settings-panel {
+            display: none; /* Hidden by default */
+            background: white;
+            border: 1px solid #e0e0e0;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            position: absolute;
+            top: 60px;
+            left: 20px;
+            right: 20px;
+            z-index: 100;
+        }
+
+        .settings-panel.active {
+            display: block;
+            animation: slideDown 0.3s ease-out;
+        }
+
+        @keyframes slideDown {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 500;
+            font-size: 14px;
+            color: #555;
+        }
+
+        .form-group input, 
+        .form-group textarea,
+        .form-group select {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-family: inherit;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+
+        .form-group input:focus, 
+        .form-group textarea:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #007bff;
+        }
+
+        .form-row {
+            display: flex;
+            gap: 20px;
+        }
+
+        .form-row .form-group {
+            flex: 1;
+        }
+
+        .input-with-btn {
+            display: flex;
+            gap: 8px;
+        }
+
+        .input-with-btn input,
+        .input-with-btn select {
+            flex: 1;
+        }
+
+        .icon-btn {
+            padding: 8px;
+            background: #f8f9fa;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: all 0.2s;
+        }
+
+        .icon-btn:hover {
+            background: #e2e6ea;
+        }
+
+        .save-btn {
+            width: 100%;
+            padding: 10px;
+            background-color: #28a745;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .save-btn:hover {
+            background-color: #218838;
+        }
+
+        .messages {
+            flex: 1;
+            overflow-y: auto;
+            margin-bottom: 20px;
+            border: 1px solid #e0e0e0;
+            padding: 20px;
+            border-radius: 12px;
+            background-color: #f9f9f9;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.05);
+        }
+
+        .message {
+            margin-bottom: 20px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .role-label {
+            font-size: 12px;
+            color: #888;
+            margin-bottom: 4px;
+            margin-left: 4px;
+        }
+
+        .content {
+            padding: 12px 16px;
+            border-radius: 12px;
+            line-height: 1.5;
+            word-wrap: break-word;
+            max-width: 85%;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+            min-height: 24px; /* Prevent collapse */
+        }
+
+        /* Style for DeepSeek think tag if it appears */
+        think {
+            display: block;
+            background: #f0f0f0;
+            padding: 10px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            font-size: 0.9em;
+            color: #666;
+            border-left: 3px solid #ccc;
+        }
+
+        .content p {
+            margin: 0 0 10px 0;
+        }
+        .content p:last-child {
+            margin-bottom: 0;
+        }
+        .content pre {
+            background: #2d2d2d;
+            color: #ccc;
+            padding: 10px;
+            border-radius: 6px;
+            overflow-x: auto;
+        }
+        .content code {
+            font-family: 'Fira Code', monospace;
+        }
+
+        .message.user {
+            align-items: flex-end;
+        }
+
+        .message.user .role-label {
+            margin-right: 4px;
+            margin-left: 0;
+        }
+
+        .message.user .content {
+            background-color: #007bff;
+            color: white;
+            border-bottom-right-radius: 2px;
+        }
+
+        .message.assistant {
+            align-items: flex-start;
+        }
+
+        .message.assistant .content {
+            background-color: white;
+            color: #333;
+            border-bottom-left-radius: 2px;
+            border: 1px solid #e0e0e0;
+        }
+
+        .input-area {
+            display: flex;
+            gap: 12px;
+            background: white;
+            padding: 10px;
+            border-radius: 12px;
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
+        }
+
+        .input-area textarea {
+            flex: 1;
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid #ddd;
+            resize: none;
+            height: 60px;
+            font-family: inherit;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+
+        .input-area textarea:focus {
+            outline: none;
+            border-color: #007bff;
+        }
+
+        .button-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            justify-content: center;
+        }
+
+        .input-area button {
+            padding: 8px 20px;
+            border-radius: 6px;
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.2s;
+            font-size: 14px;
+        }
+
+        .send-btn {
+            background-color: #007bff;
+            color: white;
+        }
+
+        .send-btn:hover:not(:disabled) {
+            background-color: #0056b3;
+        }
+
+        .cancel-btn {
+            background-color: #f8f9fa;
+            color: #dc3545;
+            border: 1px solid #dc3545;
+        }
+
+        .cancel-btn:hover:not(:disabled) {
+            background-color: #dc3545;
+            color: white;
+        }
+
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .typing {
+            color: #888;
+            font-style: italic;
+        }
+
+        .error {
+            color: #dc3545;
+        }
+
+        .cancelled {
+            color: #e6a23c;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+    <div class="chat-container">
+        <div class="header">
+            <h2>DeepSeek Chat Demo</h2>
+            <button id="settings-toggle" class="settings-btn">⚙️</button>
+        </div>
+
+        <!-- Settings Panel -->
+        <div id="settings-panel" class="settings-panel">
+            <div class="form-group">
+                <label>API Key</label>
+                <input id="config-apiKey" type="password" placeholder="sk-..." />
+            </div>
+            <div class="form-group">
+                <label>API Base URL</label>
+                <input id="config-apiBaseUrl" placeholder="https://api.deepseek.com" />
+            </div>
+            <div class="form-group">
+                <label>Model</label>
+                <div class="input-with-btn">
+                    <select id="config-model">
+                        <option value="deepseek-chat">deepseek-chat</option>
+                    </select>
+                    <button id="refresh-models" class="icon-btn" title="Refresh Models">🔄</button>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>System Message</label>
+                <textarea id="config-systemMessage" rows="3" placeholder="You are a helpful assistant."></textarea>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Temperature (<span id="temp-display">0.8</span>)</label>
+                    <input id="config-temperature" type="range" min="0" max="2" step="0.1" value="0.8" />
+                </div>
+                <div class="form-group">
+                    <label>Max Tokens</label>
+                    <input id="config-maxTokens" type="number" value="1000" />
+                </div>
+            </div>
+            <button id="save-settings" class="save-btn">Apply Settings</button>
+        </div>
+
+        <div id="messages-container" class="messages">
+            <!-- Messages will be injected here -->
+        </div>
+
+        <div class="input-area">
+            <textarea id="input-message" placeholder="Type a message... (Enter to send)"></textarea>
+            <div class="button-group">
+                <button id="send-btn" class="send-btn">Send</button>
+                <button id="cancel-btn" class="cancel-btn" disabled>Stop</button>
+            </div>
+        </div>
+    </div>
+    <script type="module" src="./main.ts"></script>
+</body>
+</html>

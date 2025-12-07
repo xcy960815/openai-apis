@@ -1,11 +1,9 @@
-import GptModel from "./gpt-model"
-import TextModle from "./text-model"
-import { ChatgptError, Core } from "./core"
+import { ChatClient } from "./chat-client"
+import { ChatgptError, ClientBase } from "./client-base"
 export {
-    GptModel,
-    TextModle,
+    ChatClient,
     ChatgptError,
-    Core
+    ClientBase
 }
 
 export * from "./types"

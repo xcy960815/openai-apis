@@ -1,18 +1,26 @@
 
-import { OpenAI } from "./index"
-import { Core } from "./core"
+import { 
+  ChatClientOptions, 
+  ChatRequestParams, 
+  ChatResponse, 
+  ChatSendMessageOptions, 
+  AssistantConversation, 
+  FetchRequestInit, 
+  ChatRequestMessage
+} from "./types"
+import { ClientBase } from "./client-base"
 const MODEL = 'gpt-3.5-turbo';
 
-export default class GptModel extends Core {
+export class ChatClient extends ClientBase {
   /**
    * @desc 请求参数
    */
-  private _requestParams: Partial<Omit<OpenAI.GptModel.RequestParams, 'messages' | 'n' | 'stream'>>;
+  private requestParams: Partial<Omit<ChatRequestParams, 'messages' | 'n' | 'stream'>>;
 
-  constructor(options: OpenAI.GptModel.GptCoreOptions) {
+  constructor(options: ChatClientOptions) {
     const { requestParams, ...coreOptions } = options;
-    super(coreOptions, "gpt-model")
-    this._requestParams = {
+    super(coreOptions)
+    this.requestParams = {
       model: MODEL,
       temperature: 0.8,
       top_p: 1,
@@ -20,31 +28,40 @@ export default class GptModel extends Core {
       ...requestParams,
     };
   }
+
+  /**
+   * @desc completions请求地址
+   * @returns {string}
+   */
+  protected get completionsUrl(): string {
+    return `${this.apiBaseUrl}/v1/chat/completions`
+  }
+
   /**
    * @description 构建fetch公共请求参数
    * @param {string} question 
-   * @param {OpenAI.GptModel.GetAnswerOptions} options 
-   * @returns {Promise<OpenAI.FetchRequestInit>}
+   * @param {ChatSendMessageOptions} options 
+   * @returns {Promise<FetchRequestInit>}
    */
-  private async _getFetchRequestInit(
+  private async getFetchRequestInit(
     question: string,
-    options: OpenAI.GptModel.GetAnswerOptions,
-  ): Promise<OpenAI.FetchRequestInit> {
+    options: ChatSendMessageOptions,
+  ): Promise<FetchRequestInit> {
     const { onProgress, stream = onProgress ? true : false, requestParams } = options
     // 获取用户和gpt历史对话记录
-    const { messages, maxTokens } = await this._getConversationHistory(question, options);
-    const body = { ...this._requestParams, ...requestParams, messages, stream, max_tokens: maxTokens };
-    const requestInit: OpenAI.FetchRequestInit = { method: 'POST', headers: this.headers, body: JSON.stringify(body), signal: this._abortController.signal };
+    const { messages, maxTokens } = await this.getConversationHistory(question, options);
+    const body = { ...this.requestParams, ...requestParams, messages, stream, max_tokens: maxTokens };
+    const requestInit: FetchRequestInit = { method: 'POST', headers: this.headers, body: JSON.stringify(body), signal: this.abortController.signal };
     return requestInit
   }
 
   /**
    * @desc 获取答案
    * @param {string} question
-   * @param {OpenAI.GptModel.GetAnswerOptions} options
-   * @returns {Promise<OpenAI.GptModel.AssistantConversation>}
+   * @param {ChatSendMessageOptions} options
+   * @returns {Promise<AssistantConversation>}
    */
-  public async getAnswer(question: string, options: OpenAI.GptModel.GetAnswerOptions): Promise<OpenAI.GptModel.AssistantConversation> {
+  public async sendMessage(question: string, options: ChatSendMessageOptions): Promise<AssistantConversation> {
     const { onProgress, stream = onProgress ? true : false } = options
     // 构建用户消息
     const role = options.role || 'user';
@@ -58,16 +75,16 @@ export default class GptModel extends Core {
     const assistantMessage = this.buildConversation('gpt-assistant', "", { ...options, messageId: userMessage.messageId })
     let rawContent = "";
     // 包装成一个promise 发起请求
-    const responseP = new Promise<OpenAI.GptModel.AssistantConversation>(async (resolve, reject) => {
+    const responseP = new Promise<AssistantConversation>(async (resolve, reject) => {
       try {
-        const requestInit = await this._getFetchRequestInit(question, options)
+        const requestInit = await this.getFetchRequestInit(question, options)
         if (stream) {
           requestInit.onMessage = (data: string) => {
             if (data === '[DONE]') {
               assistantMessage.content = (assistantMessage.content || '').trim();
               return resolve(assistantMessage)
             }
-            const response: OpenAI.GptModel.Response = JSON.parse(data);
+            const response: ChatResponse = JSON.parse(data);
             assistantMessage.messageId = response.id
             if (response?.choices?.length) {
               const delta = response.choices[0].delta;
@@ -94,10 +111,10 @@ export default class GptModel extends Core {
               onProgress?.(assistantMessage);
             }
           };
-          await this._fetchSSE<OpenAI.GptModel.Response>(this.completionsUrl, requestInit).catch(reject);;
+          await this.fetchSSE<ChatResponse>(this.completionsUrl, requestInit).catch(reject);;
         } else {
           // 发送数据请求
-          const response = await this._fetchSSE<OpenAI.GptModel.Response>(this.completionsUrl, requestInit);
+          const response = await this.fetchSSE<ChatResponse>(this.completionsUrl, requestInit);
           const data = await response?.json();
           if (data?.id) {
             assistantMessage.messageId = data.id;
@@ -126,7 +143,7 @@ export default class GptModel extends Core {
         })
       });
     return this.clearablePromise(responseP, {
-      milliseconds: this._milliseconds,
+      milliseconds: this.milliseconds,
       message: ``
     })
   }
@@ -135,21 +152,21 @@ export default class GptModel extends Core {
   /**
    * @desc 获取会话消息历史
    * @param {string} text
-   * @param {Required<OpenAI.GptModel.SendMessageOptions>} options
-   * @returns {Promise<{ messages: OpenAI.GptModel.Message[]; }>}
+   * @param {Required<ChatSendMessageOptions>} options
+   * @returns {Promise<{ messages: ChatRequestMessage[]; }>}
    */
-  private async _getConversationHistory(text: string, options: OpenAI.GptModel.GetAnswerOptions): Promise<{ messages: Array<OpenAI.GptModel.RequestMessage>, maxTokens: number }> {
+  private async getConversationHistory(text: string, options: ChatSendMessageOptions): Promise<{ messages: Array<ChatRequestMessage>, maxTokens: number }> {
 
     const { systemMessage } = options;
-    const maxTokenCount = this._maxModelTokens - this._maxResponseTokens;
+    const maxTokenCount = this.maxModelTokens - this.maxResponseTokens;
     // 上次的会话id
     let parentMessageId = options.parentMessageId;
 
     // 当前系统和用户消息
-    const messages: Array<OpenAI.GptModel.RequestMessage> = [
+    const messages: Array<ChatRequestMessage> = [
       {
         role: 'system',
-        content: systemMessage || this._systemMessage,
+        content: systemMessage || this.systemMessage,
       },
       // 用户当前的问题
       {
@@ -166,7 +183,7 @@ export default class GptModel extends Core {
     // 基础 Token 数（包含 System 和 User）
     tokenCount = await this.getTokenCount(systemMessageStr) + await this.getTokenCount(userMessageStr);
 
-    while (true && this._withContent) {
+    while (true && this.withContent) {
       // 如果基础 Token 已经超过限制，直接跳出（虽然理论上不应该发生，除非 system/user 极其长）
       if (tokenCount > maxTokenCount) {
         break;
@@ -200,9 +217,24 @@ export default class GptModel extends Core {
       parentMessageId = parentMessage.parentMessageId;
     }
 
-    const maxTokens = Math.max(1, Math.min(this._maxModelTokens - tokenCount, this._maxResponseTokens));
+    const maxTokens = Math.max(1, Math.min(this.maxModelTokens - tokenCount, this.maxResponseTokens));
 
     return { messages, maxTokens };
   }
 
+}
+
+/**
+ * @desc gpt 模型模块
+ */
+export namespace ChatClient {
+    export type RequestMessage = import('./types').ChatRequestMessage;
+    export type RequestParams = import('./types').ChatRequestParams;
+    export type ResponseMessage = import('./types').ChatResponseMessage;
+    export type ResponseDelta = import('./types').ChatResponseDelta;
+    export type ResponseChoice = import('./types').ChatResponseChoice;
+    export type Response = import('./types').ChatResponse;
+    export type AssistantConversation = import('./types').AssistantConversation;
+    export type SendMessageOptions = import('./types').ChatSendMessageOptions;
+    export type ChatClientOptions = import('./types').ChatClientOptions;
 }

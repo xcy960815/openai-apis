@@ -1,5 +1,148 @@
 import Gpt3Tokenizer from 'gpt3-tokenizer';
 
+export declare interface AnswerResponse<T = any> extends globalThis.Response {
+    json(): Promise<T>;
+}
+
+export declare interface AssistantConversation extends Conversation {
+    detail?: ChatResponse | null;
+}
+
+/**
+ * @desc 公共请求参数
+ */
+export declare interface BaseRequestParams {
+    /** 模型 */
+    model: string;
+    max_tokens?: number;
+    temperature?: number | null;
+    top_p?: number | null;
+    n?: number | null;
+    stream?: boolean | null;
+    stop?: Array<string> | string;
+    logit_bias?: Record<string, number>;
+    presence_penalty?: number | null;
+    frequency_penalty?: number | null;
+    user?: string;
+    tools?: Array<Tool>;
+    tool_choice?: string | {
+        type: 'function';
+        function: {
+            name: string;
+        };
+    };
+}
+
+export declare interface BaseResponse {
+    /** id */
+    id: string;
+    /** example "chat.completion" */
+    object: string;
+    /** 创建时间（时间戳） */
+    created: number;
+    /** 本次回答所用到的模型 */
+    model: string;
+    /** 当用户设置stream:true时，不会返回 usage 字段 */
+    usage?: ResponseUsage;
+}
+
+/**
+ * @desc 公共返回的Choice参数
+ */
+export declare interface BaseResponseChoice {
+    /** 下标 */
+    index?: number;
+    /** 结束原因 */
+    finish_reason?: string | null;
+    /** 参数未知 作用未知 */
+    content_filter_results?: {
+        hate: {
+            filtered: boolean;
+            severity: string;
+        };
+        self_harm: {
+            filtered: boolean;
+            severity: string;
+        };
+        sexual: {
+            filtered: boolean;
+            severity: string;
+        };
+        violence: {
+            filtered: boolean;
+            severity: string;
+        };
+    };
+}
+
+/**
+ * @desc 公共发送消息选项
+ */
+export declare interface BaseSendMessageOptions {
+    parentMessageId?: string;
+    messageId?: string;
+    stream?: boolean;
+    systemMessage?: string;
+    role?: Role;
+    tool_call_id?: string;
+    name?: string;
+}
+
+export declare type BuildConversationReturns<R extends Role | "gpt-assistant"> = R extends 'user' ? Conversation : R extends 'gpt-assistant' ? AssistantConversation : R extends 'tool' ? Conversation : R extends 'function' ? Conversation : undefined;
+
+export declare class ChatClient extends ClientBase {
+    /**
+     * @desc 请求参数
+     */
+    private requestParams;
+    constructor(options: ChatClientOptions);
+    /**
+     * @desc completions请求地址
+     * @returns {string}
+     */
+    protected get completionsUrl(): string;
+    /**
+     * @description 构建fetch公共请求参数
+     * @param {string} question
+     * @param {ChatSendMessageOptions} options
+     * @returns {Promise<FetchRequestInit>}
+     */
+    private getFetchRequestInit;
+    /**
+     * @desc 获取答案
+     * @param {string} question
+     * @param {ChatSendMessageOptions} options
+     * @returns {Promise<AssistantConversation>}
+     */
+    sendMessage(question: string, options: ChatSendMessageOptions): Promise<AssistantConversation>;
+    /**
+     * @desc 获取会话消息历史
+     * @param {string} text
+     * @param {Required<ChatSendMessageOptions>} options
+     * @returns {Promise<{ messages: ChatRequestMessage[]; }>}
+     */
+    private getConversationHistory;
+}
+
+/**
+ * @desc gpt 模型模块
+ */
+export declare namespace ChatClient {
+    export type RequestMessage = ChatRequestMessage;
+    export type RequestParams = ChatRequestParams;
+    export type ResponseMessage = ChatResponseMessage;
+    export type ResponseDelta = ChatResponseDelta;
+    export type ResponseChoice = ChatResponseChoice;
+    export type Response = ChatResponse;
+    export type AssistantConversation = AssistantConversation;
+    export type SendMessageOptions = ChatSendMessageOptions;
+    export type ChatClientOptions = ChatClientOptions;
+}
+
+export declare interface ChatClientOptions extends ClientBaseOptions {
+    requestParams?: Partial<Omit<ChatRequestParams, 'messages' | 'n' | 'stream'>>;
+}
+
 /**
  * @desc ChatGPT 错误类
  */
@@ -7,43 +150,89 @@ export declare class ChatgptError extends Error {
     status?: number;
     statusText?: string;
     url?: string;
-    constructor(message: string, option?: OpenAI.ChatgptErrorOption);
+    constructor(message: string, option?: ChatgptErrorOption);
+}
+
+export declare interface ChatgptErrorOption {
+    status?: number;
+    statusText?: string;
+    url?: string;
+}
+
+export declare interface ChatRequestMessage extends Omit<Conversation, 'messageId' | 'parentMessageId'> {
 }
 
 /**
- * @description 基础类 有一些公共方法
-
+ * @desc 请求参数
  */
-export declare class Core {
-    /** 用于区分是哪个模型的继承 返回不同请求地址 */
-    private _who;
+export declare interface ChatRequestParams extends BaseRequestParams {
+    messages: Array<ChatRequestMessage>;
+}
+
+/**
+ * @desc 不走steam流接口的输出结果
+ */
+export declare interface ChatResponse extends BaseResponse {
+    choices: Array<ChatResponseChoice>;
+}
+
+export declare interface ChatResponseChoice extends BaseResponseChoice {
+    message?: ChatResponseMessage;
+    delta: ChatResponseDelta;
+}
+
+export declare interface ChatResponseDelta extends ChatResponseMessage {
+    tool_calls?: Array<ToolCall>;
+}
+
+export declare interface ChatResponseMessage {
+    role: Role;
+    content: string | null;
+    tool_calls?: Array<ToolCall>;
+}
+
+export declare interface ChatSendMessageOptions extends BaseSendMessageOptions {
+    onProgress?: (partialResponse: AssistantConversation) => void;
+    requestParams?: Partial<Omit<ChatRequestParams, 'messages' | 'n' | 'stream'>>;
+}
+
+export declare type ClearablePromiseOptions = {
+    milliseconds: number;
+    message?: string;
+};
+
+/**
+ * @description 基础类 有一些公共方法
+ *
+ */
+export declare class ClientBase {
     /** gpt 对话key */
-    protected _apiKey: string;
+    protected apiKey: string;
     /** gpt 请求域名 */
-    protected _apiBaseUrl: string;
+    protected apiBaseUrl: string;
     /** gpt 组织 */
-    protected _organization?: string;
+    protected organization?: string;
     /** 是否开启debug */
-    protected _debug: boolean;
+    protected debug: boolean;
     /** 是否携带上下文 */
-    protected _withContent: boolean;
+    protected withContent: boolean;
     /** 消息仓库 */
-    protected _messageStore: Map<string, OpenAI.Conversation>;
+    protected messageStore: Map<string, Conversation>;
     /** 最大请求token */
-    protected _maxModelTokens: number;
+    protected maxModelTokens: number;
     /** 最多返回token */
-    protected _maxResponseTokens: number;
+    protected maxResponseTokens: number;
     /** 系统角色 */
-    protected _systemMessage: string;
+    protected systemMessage: string;
     /** 取消fetch请求控制器 */
-    protected _abortController: AbortController;
+    protected abortController: AbortController;
     /** 用于计算token */
-    protected _gpt3Tokenizer: Gpt3Tokenizer;
+    protected gpt3Tokenizer: Gpt3Tokenizer;
     /** 超时时间 */
-    protected _milliseconds: number;
+    protected milliseconds: number;
     /** 是否将markdown语法转换成html */
-    protected _markdown2Html: boolean;
-    constructor(options: OpenAI.CoreOptions, who: string);
+    protected markdown2Html: boolean;
+    constructor(options: ClientBaseOptions);
     /**
      * @desc 解析markdown
      * @param {string} text
@@ -51,15 +240,10 @@ export declare class Core {
      */
     protected parseMarkdown(text: string): string;
     /**
-     * @desc completions请求地址
-     * @returns {string}
-     */
-    protected get completionsUrl(): string;
-    /**
      * @desc models 请求地址
      * @returns {string}
      */
-    private get modelUrl();
+    protected get modelUrl(): string;
     /**
      * @desc 生成随机id
      * @returns {string}
@@ -78,36 +262,36 @@ export declare class Core {
     protected getTokenCount(_text: string): Promise<number>;
     /**
      * @description 构建会话消息
-     * @param {"user" | "gpt-assistant" | "text-assistant"} role
+     * @param {"user" | "gpt-assistant"} role
      * @param {string} content
-     * @param {OpenAI.SendMessageOptions} option
-     * @returns {OpenAI.Conversation}
+     * @param {BaseSendMessageOptions} option
+     * @returns {Conversation}
      */
-    protected buildConversation<R extends OpenAI.Role | "gpt-assistant" | "text-assistant">(role: R, content: string, option: OpenAI.GetAnswerOptions): OpenAI.BuildConversationReturns<R>;
+    protected buildConversation<R extends Role | "gpt-assistant">(role: R, content: string, option: BaseSendMessageOptions): BuildConversationReturns<R>;
     /**
      * @desc 获取对话
      * @param {string} id
-     * @returns {Promise<OpenAI.Conversation | undefined>}
+     * @returns {Promise<Conversation | undefined>}
      */
-    protected getConversation(id: string): Promise<OpenAI.Conversation | undefined>;
+    protected getConversation(id: string): Promise<Conversation | undefined>;
     /**
      * @desc 更新对话
-     * @param {OpenAI.Conversation} message
+     * @param {Conversation} message
      * @returns {Promise<void>}
      */
-    protected upsertConversation(message: OpenAI.Conversation): Promise<void>;
+    protected upsertConversation(message: Conversation): Promise<void>;
     /**
      * @desc 清空消息
      * @returns {Promise<void>}
      */
-    protected _clearMessage(): Promise<void>;
+    protected clearMessage(): Promise<void>;
     /**
      * @desc 输出debug参数
      * @param {string} action
      * @param {any[]} args
      * @returns {void}
      */
-    protected _debugLog(action: string, ...args: any[]): void;
+    protected debugLog(action: string, ...args: any[]): void;
     /**
      * 这个方法的作用是将一个 ReadableStream 对象转换成一个异步迭代器 AsyncIterable，
      * 该迭代器会在每次迭代中返回一个 Uint8Array 类型的数据块。具体来说，该方法会获取一个 ReadableStream 对象的读取器（reader），
@@ -120,365 +304,131 @@ export declare class Core {
     /**
      * @desc 向OpenAI发送请求
      * @param {string} url
-     * @param {OpenAI.FetchSSEOptions} options
-     * @returns {Promise<OpenAI.GptResponse<R> | void>}
+     * @param {FetchSSEOptions} options
+     * @returns {Promise<GptResponse<R> | void>}
      */
-    protected _fetchSSE<R extends Object>(url: string, requestInit: OpenAI.FetchRequestInit): Promise<OpenAI.AnswerResponse<R> | void>;
+    protected fetchSSE<R extends Object>(url: string, requestInit: FetchRequestInit): Promise<AnswerResponse<R> | void>;
     /**
      * @description 创建parser
      * @param {(p:string)=>void} onMessage
      * @returns {EventSourceParser}
      */
-    private _createParser;
+    private createParser;
     /**
      * @description 清空promise
      */
-    protected clearablePromise<V = any>(inputPromise: PromiseLike<V>, options: OpenAI.ClearablePromiseOptions): Promise<V>;
+    protected clearablePromise<V = any>(inputPromise: PromiseLike<V>, options: ClearablePromiseOptions): Promise<V>;
     /**
      * @desc 取消对话
      * @param {string}reson
      * @returns {void}
      */
     cancelConversation(reson?: string): void;
-    getModels(): Promise<void | OpenAI.AnswerResponse<Object>>;
+    getModels(): Promise<void | AnswerResponse<Object>>;
 }
 
-export declare class GptModel extends Core {
-    /**
-     * @desc 请求参数
-     */
-    private _requestParams;
-    constructor(options: OpenAI.GptModel.GptCoreOptions);
-    /**
-     * @description 构建fetch公共请求参数
-     * @param {string} question
-     * @param {OpenAI.GptModel.GetAnswerOptions} options
-     * @returns {Promise<OpenAI.FetchRequestInit>}
-     */
-    private _getFetchRequestInit;
-    /**
-     * @desc 获取答案
-     * @param {string} question
-     * @param {OpenAI.GptModel.GetAnswerOptions} options
-     * @returns {Promise<OpenAI.GptModel.AssistantConversation>}
-     */
-    getAnswer(question: string, options: OpenAI.GptModel.GetAnswerOptions): Promise<OpenAI.GptModel.AssistantConversation>;
-    /**
-     * @desc 获取会话消息历史
-     * @param {string} text
-     * @param {Required<OpenAI.GptModel.SendMessageOptions>} options
-     * @returns {Promise<{ messages: OpenAI.GptModel.Message[]; }>}
-     */
-    private _getConversationHistory;
+/**
+ * @desc 模型公共参数
+ */
+export declare interface ClientBaseOptions {
+    apiKey: string;
+    /** 请求连接 default https://api.OpenAI.com */
+    apiBaseUrl?: string;
+    /** 组织 */
+    organization?: string;
+    /** 是否开启debug模式 */
+    debug?: boolean;
+    /** @defaultValue 4096 **/
+    maxModelTokens?: number;
+    /** @defaultValue 1000 **/
+    maxResponseTokens?: number;
+    /** 是否携带上下文 */
+    withContent?: boolean;
+    /** 系统消息 */
+    systemMessage?: string;
+    /** 超时时间 */
+    milliseconds?: number;
+    /** 是否将markdown语法转换成html */
+    markdown2Html?: boolean;
 }
 
-export declare namespace OpenAI {
-    export type ClearablePromiseOptions = {
-        milliseconds: number;
-        message?: string;
-    };
-    export interface ChatgptErrorOption {
-        status?: number;
-        statusText?: string;
-        url?: string;
-    }
-    /**
-     * @desc fetch 请求配置
-     */
-    export interface FetchRequestInit extends RequestInit {
-        onMessage?: (message: string) => void;
-    }
-    /**
-     * @desc 模型公共参数
-     */
-    export interface CoreOptions {
-        apiKey: string;
-        /** 请求连接 default https://api.OpenAI.com */
-        apiBaseUrl?: string;
-        /** 组织 */
-        organization?: string;
-        /** 是否开启debug模式 */
-        debug?: boolean;
-        /** @defaultValue 4096 **/
-        maxModelTokens?: number;
-        /** @defaultValue 1000 **/
-        maxResponseTokens?: number;
-        /** 是否携带上下文 */
-        withContent?: boolean;
-        /** 系统消息 */
-        systemMessage?: string;
-        /** 超时时间 */
-        milliseconds?: number;
-        /** 是否将markdown语法转换成html */
-        markdown2Html?: boolean;
-    }
-    /**
-     * @desc 公共返回usage
-     */
-    export interface ResponseUsage {
-        completion_tokens: number;
-        prompt_tokens: number;
-        total_tokens: number;
-    }
-    export type BuildConversationReturns<R extends Role | "gpt-assistant" | "text-assistant"> = R extends 'user' ? OpenAI.Conversation : R extends 'gpt-assistant' ? OpenAI.GptModel.AssistantConversation : R extends 'text-assistant' ? OpenAI.TextModel.AssistantConversation : R extends 'tool' ? OpenAI.Conversation : R extends 'function' ? OpenAI.Conversation : undefined;
-    export interface Response {
-        /** id */
-        id: string;
-        /** example "chat.completion" */
-        object: string;
-        /** 创建时间（时间戳） */
-        created: number;
-        /** 本次回答所用到的模型 */
-        model: string;
-        /** 当用户设置stream:true时，不会返回 usage 字段 */
-        usage?: ResponseUsage;
-    }
-    /**
-     * @desc 公共请求参数
-     */
-    export interface RequestParams {
-        /** 模型 */
-        model: string;
-        max_tokens?: number;
-        temperature?: number | null;
-        top_p?: number | null;
-        n?: number | null;
-        stream?: boolean | null;
-        stop?: Array<string> | string;
-        logit_bias?: Record<string, number>;
-        presence_penalty?: number | null;
-        frequency_penalty?: number | null;
-        user?: string;
-        tools?: Array<Tool>;
-        tool_choice?: string | {
-            type: 'function';
-            function: {
-                name: string;
-            };
-        };
-    }
-    /**
-     * @desc 公共返回的Choice参数
-     */
-    export interface ResponseChoice {
-        /** 下标 */
-        index?: number;
-        /** 结束原因 */
-        finish_reason?: string | null;
-        /** 参数未知 作用未知 */
-        content_filter_results?: {
-            hate: {
-                filtered: boolean;
-                severity: string;
-            };
-            self_harm: {
-                filtered: boolean;
-                severity: string;
-            };
-            sexual: {
-                filtered: boolean;
-                severity: string;
-            };
-            violence: {
-                filtered: boolean;
-                severity: string;
-            };
-        };
-    }
-    /**
-     * @description 系统、用户、助手（gpt）会话消息
-     * @param role 角色 system 给系统设置的人设 user用户 assistant 助手 gpt
-     * @param content 对话内容
-     * @param messageId 当前对话产生的id
-     * @param parentMessageId 上次对话消息id
-     */
-    export interface Conversation {
-        role: Role;
-        content: string | null;
-        messageId: string;
-        parentMessageId: string;
-        name?: string;
-        tool_calls?: Array<ToolCall>;
-        tool_call_id?: string;
-        function_call?: FunctionCall;
-    }
-    /**
-     * @desc 公共发送消息选项
-     */
-    export interface GetAnswerOptions {
-        parentMessageId?: string;
-        messageId?: string;
-        stream?: boolean;
-        systemMessage?: string;
-        role?: Role;
-        tool_call_id?: string;
-        name?: string;
-    }
-    /**
-     * @desc 公共角色枚举
-     */
-    export enum RoleEnum {
-        System = "system",
-        User = "user",
-        Assistant = "assistant"
-    }
-    export type Role = 'system' | 'user' | 'assistant' | 'tool' | 'function';
-    /**
-     * @desc Function definition
-     */
-    export interface FunctionDef {
-        name: string;
-        description?: string;
-        parameters?: Record<string, any>;
-    }
-    /**
-     * @desc Tool definition
-     */
-    export interface Tool {
-        type: 'function';
-        function: FunctionDef;
-    }
-    /**
-     * @desc Tool call in response
-     */
-    export interface ToolCall {
-        id: string;
-        type: 'function';
-        function: {
-            name: string;
-            arguments: string;
-        };
-    }
-    export interface FunctionCall {
+/**
+ * @description 系统、用户、助手（gpt）会话消息
+ * @param role 角色 system 给系统设置的人设 user用户 assistant 助手 gpt
+ * @param content 对话内容
+ * @param messageId 当前对话产生的id
+ * @param parentMessageId 上次对话消息id
+ */
+export declare interface Conversation {
+    role: Role;
+    content: string | null;
+    messageId: string;
+    parentMessageId: string;
+    name?: string;
+    tool_calls?: Array<ToolCall>;
+    tool_call_id?: string;
+    function_call?: FunctionCall;
+}
+
+/**
+ * @desc fetch 请求配置
+ */
+export declare interface FetchRequestInit extends RequestInit {
+    onMessage?: (message: string) => void;
+}
+
+export declare interface FunctionCall {
+    name: string;
+    arguments: string;
+}
+
+/**
+ * @desc Function definition
+ */
+export declare interface FunctionDef {
+    name: string;
+    description?: string;
+    parameters?: Record<string, any>;
+}
+
+/**
+ * @desc 公共返回usage
+ */
+export declare interface ResponseUsage {
+    completion_tokens: number;
+    prompt_tokens: number;
+    total_tokens: number;
+}
+
+export declare type Role = 'system' | 'user' | 'assistant' | 'tool' | 'function';
+
+/**
+ * @desc 公共角色枚举
+ */
+export declare enum RoleEnum {
+    System = "system",
+    User = "user",
+    Assistant = "assistant"
+}
+
+/**
+ * @desc Tool definition
+ */
+export declare interface Tool {
+    type: 'function';
+    function: FunctionDef;
+}
+
+/**
+ * @desc Tool call in response
+ */
+export declare interface ToolCall {
+    id: string;
+    type: 'function';
+    function: {
         name: string;
         arguments: string;
-    }
-    export interface AnswerResponse<T = any> extends globalThis.Response {
-        json(): Promise<T>;
-    }
-    /**
-     * @desc gpt 模型模块
-     */
-    export namespace GptModel {
-        export interface RequestMessage extends Omit<OpenAI.Conversation, 'messageId' | 'parentMessageId'> {
-        }
-        /**
-         * @desc 请求参数
-         */
-        export interface RequestParams extends OpenAI.RequestParams {
-            messages: Array<RequestMessage>;
-        }
-        export interface ResponseMessage {
-            role: Role;
-            content: string | null;
-            tool_calls?: Array<ToolCall>;
-        }
-        export interface ResponseDelta extends ResponseMessage {
-            tool_calls?: Array<ToolCall>;
-        }
-        export interface ResponseChoice extends OpenAI.ResponseChoice {
-            message?: ResponseMessage;
-            delta: ResponseDelta;
-        }
-        /**
-         * @desc 不走steam流接口的输出结果
-         */
-        export interface Response extends OpenAI.Response {
-            choices: Array<ResponseChoice>;
-        }
-        export interface AssistantConversation extends OpenAI.Conversation {
-            detail?: Response | null;
-        }
-        export interface GetAnswerOptions extends OpenAI.GetAnswerOptions {
-            onProgress?: (partialResponse: AssistantConversation) => void;
-            requestParams?: Partial<Omit<RequestParams, 'messages' | 'n' | 'stream'>>;
-        }
-        export interface GptCoreOptions extends CoreOptions {
-            requestParams?: Partial<Omit<RequestParams, 'messages' | 'n' | 'stream'>>;
-        }
-    }
-    export namespace TextModel {
-        /**
-         * @desc 发送的消息选项
-         */
-        export interface GetAnswerOptions extends OpenAI.GetAnswerOptions {
-            systemPromptPrefix?: string;
-            onProgress?: (partialResponse: AssistantConversation) => void;
-            requestParams?: Partial<Omit<RequestParams, 'messages' | 'n' | 'stream'>>;
-        }
-        /**
-         * @desc 请求参数
-         */
-        export interface RequestParams extends OpenAI.RequestParams {
-            prompt: string;
-            suffix?: string;
-            echo?: boolean;
-            best_of?: number;
-        }
-        /**
-         * @desc 请求返回
-         */
-        export interface Response extends OpenAI.Response {
-            choices: Array<ResponseChoice>;
-        }
-        /**
-         * @desc 对数概率？？？？
-         */
-        export interface ResponseLogprobs {
-            tokens?: Array<string>;
-            token_logprobs?: Array<number>;
-            top_logprobs?: Array<object>;
-            text_offset?: Array<number>;
-        }
-        /**
-         * @desc 作用未知
-         */
-        export interface ResponseChoice extends OpenAI.ResponseChoice {
-            text?: string;
-            logprobs: ResponseLogprobs | null;
-        }
-        export interface AssistantConversation extends OpenAI.Conversation {
-            detail?: Response | null;
-        }
-        export interface TextCoreOptions extends CoreOptions {
-            requestParams?: Partial<RequestParams>;
-            userPromptPrefix?: string;
-            systemPromptPrefix?: string;
-        }
-    }
+    };
 }
 
-export declare class TextModle extends Core {
-    /** 默认请求参数 */
-    private _requestParams;
-    /** 用户提示前缀 */
-    private _userPromptPrefix;
-    /** 系统提示前缀 */
-    private _systemPromptPrefix;
-    /** 会话接口标识符 */
-    private _endToken;
-    constructor(options: OpenAI.TextModel.TextCoreOptions);
-    /**
-     * @description 构建fetch公共请求参数
-     * @param {string} question
-     * @param {OpenAI.GptModel.GetAnswerOptions} options
-     * @returns {Promise<OpenAI.FetchRequestInit>}
-     */
-    private _getFetchRequestInit;
-    /**
-     * @desc 发送请求到OpenAI
-     * @param {string} text
-     * @param {OpenAI.TextModel.GetAnswerOptions} options
-     * @returns {Promise<OpenAI.TextModel.AssistantConversation>}
-     */
-    getAnswer(text: string, options: OpenAI.TextModel.GetAnswerOptions): Promise<OpenAI.TextModel.AssistantConversation>;
-    /**
-     * @desc 构建 prompt 获取 maxTokens
-     * @param {string} message
-     * @param {OpenAI.TextModel.SendMessageOptions} options
-     * @returns {Promise<{prompt: string, maxTokens: number}>
-         */
-     private _getConversationHistory;
-    }
-
-    export { }
+export { }

@@ -16,14 +16,14 @@
     "types"
   ],
   "scripts": {
-    "dev": "vue-cli-service serve",
+    "dev": "vite",
     "build": "NODE_ENV=production ENV=prod rollup -c rollup.config.mjs && api-extractor run && rimraf temp",
     "release": "standard-version",
     "lint": "eslint src --ext .ts",
     "test": "jest",
-    "example:node": "npx -y ts-node -O '{\"module\":\"commonjs\"}' example/node/index.ts",
-    "example:node:cli": "npx -y ts-node -O '{\"module\":\"commonjs\"}' example/node/cli.ts",
-    "example:node:fc": "npx -y ts-node -O '{\"module\":\"commonjs\"}' example/node/function-calling.ts"
+    "example:node": "tsx example/node/index.ts",
+    "example:node:cli": "tsx example/node/cli.ts",
+    "example:node:fc": "tsx example/node/function-calling.ts"
   },
   "repository": {
     "type": "git",
@@ -33,8 +33,17 @@
     "openai",
     "chatgpt",
     "gpt",
-    "gpt3",
-    "gpt3.5"
+    "gpt-3",
+    "gpt-4",
+    "deepseek",
+    "llm",
+    "ai",
+    "chatbot",
+    "sdk",
+    "typescript",
+    "streaming",
+    "sse",
+    "context-aware"
   ],
   "author": {
     "name": "xcy960815",
@@ -71,7 +80,7 @@
     "less": "^4.0.0",
     "less-loader": "^8.0.0",
     "lint-staged": "^16.2.7",
-    "prettier": "^2.2.1",
+    "prettier": "^3.7.4",
     "pretty-quick": "^1.8.0",
     "rimraf": "^6.1.2",
     "rollup": "^4.53.3",
@@ -84,8 +93,10 @@
     "standard-version": "^9.5.0",
     "ts-jest": "^29.4.6",
     "tslib": "^2.6.2",
+    "tsx": "^4.21.0",
     "typescript": "^5.8.2",
     "vcm-cli": "^1.0.5",
+    "vite": "^5.4.21",
     "vue": "^3.4.27"
   },
   "lint-staged": {

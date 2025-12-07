@@ -1,4 +1,4 @@
-import GptModel from '../gpt-model';
+import { ChatClient } from '../chat-client';
 
 
 
@@ -10,7 +10,7 @@ jest.mock('marked', () => ({
   marked: (text: string) => `<strong>${text.replace(/\*\*/g, '')}</strong>`,
 }));
 
-describe('GptModel', () => {
+describe('ChatClient', () => {
   beforeEach(() => {
     (global.fetch as jest.Mock).mockClear();
   });
@@ -41,12 +41,12 @@ describe('GptModel', () => {
       text: async () => JSON.stringify(mockResponse),
     });
 
-    const gpt = new GptModel({
+    const client = new ChatClient({
       apiKey: 'test-key',
       markdown2Html: true,
     });
 
-    const res = await gpt.getAnswer('hi', {});
+    const res = await client.sendMessage('hi', {});
     
     // marked output usually contains the HTML tags
     expect(res.content).toContain('<strong>Hello</strong>');

@@ -1,4 +1,4 @@
-import { GptModel } from '../../src/index';
+import { ChatClient } from '../../src/index';
 import * as dotenv from 'dotenv';
 import * as path from 'path';
 
@@ -12,7 +12,7 @@ if (!apiKey) {
   process.exit(1);
 }
 
-const gpt = new GptModel({
+const client = new ChatClient({
   apiKey: apiKey,
   debug: true,
   requestParams: {
@@ -62,7 +62,7 @@ async function main() {
   try {
     // 1. Send user message with tools
     console.log('User: What is the weather in Shanghai?');
-    const res1 = await gpt.getAnswer('What is the weather in Shanghai?', {
+    const res1 = await client.sendMessage('What is the weather in Shanghai?', {
       requestParams: {
         tools: tools as any,
         tool_choice: 'auto',
@@ -84,7 +84,7 @@ async function main() {
         // We need to pass the tool result with role 'tool' and the tool_call_id
         console.log('Sending tool result back to model...');
         
-        const res2 = await gpt.getAnswer(functionResult, {
+        const res2 = await client.sendMessage(functionResult, {
           parentMessageId: res1.messageId,
           role: 'tool',
           tool_call_id: toolCall.id,

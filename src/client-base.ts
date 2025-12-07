@@ -1,76 +1,71 @@
-import { OpenAI } from "./index"
+import { ClientBaseOptions, Conversation, Role, BaseSendMessageOptions, BuildConversationReturns, FetchRequestInit, AnswerResponse, ChatgptErrorOption, ClearablePromiseOptions, ListModelsResponse } from "./types"
 import 'isomorphic-fetch'
-import { createParser } from 'eventsource-parser';
-import type { EventSourceParser } from "eventsource-parser"
+import { createParser, EventSourceParser } from 'eventsource-parser';
 import { v4 as uuidv4 } from "uuid"
 import Gpt3Tokenizer from 'gpt3-tokenizer';
 import { marked } from 'marked';
 
 /**
  * @description 基础类 有一些公共方法
-
+ *
  */
-export class Core {
-    /** 用于区分是哪个模型的继承 返回不同请求地址 */
-    private _who: string
+export class ClientBase {
     /** gpt 对话key */
-    protected _apiKey: string;
+    protected apiKey: string;
     /** gpt 请求域名 */
-    protected _apiBaseUrl: string;
+    protected apiBaseUrl: string;
     /** gpt 组织 */
-    protected _organization?: string;
+    protected organization?: string;
     /** 是否开启debug */
-    protected _debug: boolean;
+    protected debug: boolean;
     /** 是否携带上下文 */
-    protected _withContent: boolean;
+    protected withContent: boolean;
     /** 消息仓库 */
-    protected _messageStore: Map<string, OpenAI.Conversation>
+    protected messageStore: Map<string, Conversation>
     /** 最大请求token */
-    protected _maxModelTokens: number;
+    protected maxModelTokens: number;
     /** 最多返回token */
-    protected _maxResponseTokens: number;
+    protected maxResponseTokens: number;
     /** 系统角色 */
-    protected _systemMessage: string
+    protected systemMessage: string
     /** 取消fetch请求控制器 */
-    protected _abortController: AbortController
+    protected abortController: AbortController
     /** 用于计算token */
-    protected _gpt3Tokenizer: Gpt3Tokenizer;
+    protected gpt3Tokenizer: Gpt3Tokenizer;
     /** 超时时间 */
-    protected _milliseconds: number
+    protected milliseconds: number
     /** 是否将markdown语法转换成html */
-    protected _markdown2Html: boolean
+    protected markdown2Html: boolean
 
-    constructor(options: OpenAI.CoreOptions, who: string) {
+    constructor(options: ClientBaseOptions) {
 
         const { apiKey, apiBaseUrl, organization, debug, withContent, maxModelTokens, maxResponseTokens, systemMessage, milliseconds, markdown2Html } = options;
 
-        this._who = who
+        this.apiKey = apiKey;
 
-        this._apiKey = apiKey;
+        this.apiBaseUrl = apiBaseUrl ?? 'https://api.OpenAI.com';
 
-        this._apiBaseUrl = apiBaseUrl ?? 'https://api.OpenAI.com';
+        this.organization = organization;
 
-        this._organization = organization;
+        this.debug = !!debug;
 
-        this._debug = !!debug;
+        this.withContent = withContent ?? true;
 
-        this._withContent = withContent ?? true;
+        this.maxModelTokens = maxModelTokens ?? 4096;
 
-        this._maxModelTokens = maxModelTokens ?? 4096;
+        this.maxResponseTokens = maxResponseTokens ?? 1000;
 
-        this._maxResponseTokens = maxResponseTokens ?? 1000;
+        this.messageStore = new Map<string, Conversation>()
 
-        this._messageStore = new Map<string, OpenAI.Conversation>()
+        this.gpt3Tokenizer = new Gpt3Tokenizer({ type: 'gpt3' });
 
-        this._gpt3Tokenizer = new Gpt3Tokenizer({ type: 'gpt3' });
+        this.systemMessage = systemMessage ?? ` 你是ChatGPT,帮助用户使用代码。您聪明、乐于助人、专业的开发人员，总是给出正确的答案，并且只按照指示执行。你的回答始终如实，不会造假`
 
-        this._systemMessage = systemMessage ?? ` 你是ChatGPT,帮助用户使用代码。您聪明、乐于助人、专业的开发人员，总是给出正确的答案，并且只按照指示执行。你的回答始终如实，不会造假`
+        this.abortController = new AbortController()
 
-        this._abortController = new AbortController()
+        this.milliseconds = milliseconds ?? 1000 * 60
 
-        this._milliseconds = milliseconds ?? 1000 * 60
-
-        this._markdown2Html = !!markdown2Html
+        this.markdown2Html = !!markdown2Html
     }
 
     /**
@@ -79,23 +74,15 @@ export class Core {
      * @returns {string}
      */
     protected parseMarkdown(text: string): string {
-        return this._markdown2Html ? marked(text) as string : text;
-    }
-
-    /**
-     * @desc completions请求地址
-     * @returns {string}
-     */
-    protected get completionsUrl(): string {
-        return `${this._apiBaseUrl}${this._who === 'gpt-model' ? '/v1/chat/completions' : '/v1/completions'}`
+        return this.markdown2Html ? marked(text) as string : text;
     }
 
     /**
      * @desc models 请求地址
      * @returns {string}
      */
-    private get modelUrl(): string {
-        return `${this._apiBaseUrl}${'/v1/models'}`
+    protected get modelUrl(): string {
+        return `${this.apiBaseUrl}${'/v1/models'}`
     }
 
     /**
@@ -113,10 +100,10 @@ export class Core {
     protected get headers(): HeadersInit {
         const headers: HeadersInit = {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${this._apiKey}`,
+            Authorization: `Bearer ${this.apiKey}`,
         };
-        if (this._organization) {
-            headers['OpenAI-Organization'] = this._organization;
+        if (this.organization) {
+            headers['OpenAI-Organization'] = this.organization;
         }
         return headers;
     }
@@ -126,64 +113,64 @@ export class Core {
      * @returns {Promise<number>}
      */
     protected async getTokenCount(_text: string): Promise<number> {
-        return await this._gpt3Tokenizer.encode(_text).bpe.length;
+        return await this.gpt3Tokenizer.encode(_text).bpe.length;
     }
 
     /**
      * @description 构建会话消息
-     * @param {"user" | "gpt-assistant" | "text-assistant"} role 
+     * @param {"user" | "gpt-assistant"} role 
      * @param {string} content 
-     * @param {OpenAI.SendMessageOptions} option 
-     * @returns {OpenAI.Conversation}
+     * @param {BaseSendMessageOptions} option 
+     * @returns {Conversation}
      */
-    protected buildConversation<R extends OpenAI.Role | "gpt-assistant" | "text-assistant">(
+    protected buildConversation<R extends Role | "gpt-assistant">(
         role: R,
         content: string,
-        option: OpenAI.GetAnswerOptions
-    ): OpenAI.BuildConversationReturns<R> {
+        option: BaseSendMessageOptions
+    ): BuildConversationReturns<R> {
         const _content = this.parseMarkdown(content);
         if (role === 'user' || role === 'tool' || role === 'function' || role === 'system') {
             return {
-                role: role as OpenAI.Role,
+                role: role as Role,
                 messageId: option.messageId || this.uuid,
                 parentMessageId: option.parentMessageId,
                 content: _content,
                 tool_call_id: option.tool_call_id,
                 name: option.name,
-            } as OpenAI.BuildConversationReturns<R>;
-        } else if (role === 'gpt-assistant' || role === 'text-assistant') {
+            } as BuildConversationReturns<R>;
+        } else if (role === 'gpt-assistant') {
             return {
                 role: "assistant",
                 messageId: "",
                 parentMessageId: option.messageId || this.uuid,
                 content: _content,
                 detail: null
-            } as OpenAI.BuildConversationReturns<R>;
+            } as BuildConversationReturns<R>;
         } else {
-            return undefined as unknown as OpenAI.BuildConversationReturns<R>;
+            return undefined as unknown as BuildConversationReturns<R>;
         }
     }
 
     /**
      * @desc 获取对话
      * @param {string} id
-     * @returns {Promise<OpenAI.Conversation | undefined>}
+     * @returns {Promise<Conversation | undefined>}
      */
-    protected getConversation(id: string): Promise<OpenAI.Conversation | undefined> {
+    protected getConversation(id: string): Promise<Conversation | undefined> {
         return new Promise((resolve) => {
-            const message = this._messageStore.get(id)
+            const message = this.messageStore.get(id)
             resolve(message)
         })
     }
     /**
      * @desc 更新对话
-     * @param {OpenAI.Conversation} message
+     * @param {Conversation} message
      * @returns {Promise<void>}
      */
-    protected upsertConversation(message: OpenAI.Conversation): Promise<void> {
+    protected upsertConversation(message: Conversation): Promise<void> {
         return new Promise((resolve) => {
             // 这里做层浅拷贝 因为map存储的值如果是对象的话 会受到指针的影响
-            this._messageStore.set(message?.messageId, { ...message })
+            this.messageStore.set(message?.messageId, { ...message })
             resolve()
         })
     }
@@ -191,9 +178,9 @@ export class Core {
      * @desc 清空消息
      * @returns {Promise<void>}
      */
-    protected _clearMessage(): Promise<void> {
+    protected clearMessage(): Promise<void> {
         return new Promise<void>((resolve) => {
-            this._messageStore.clear()
+            this.messageStore.clear()
             resolve()
         })
     }
@@ -203,8 +190,8 @@ export class Core {
      * @param {any[]} args 
      * @returns {void}
      */
-    protected _debugLog(action: string, ...args: any[]) {
-        if (this._debug) {
+    protected debugLog(action: string, ...args: any[]) {
+        if (this.debug) {
             console.log(`OpenAI-apis:DEBUG:${action}`, ...args);
         }
     }
@@ -239,15 +226,15 @@ export class Core {
     /**
      * @desc 向OpenAI发送请求
      * @param {string} url 
-     * @param {OpenAI.FetchSSEOptions} options
-     * @returns {Promise<OpenAI.GptResponse<R> | void>}
+     * @param {FetchSSEOptions} options
+     * @returns {Promise<GptResponse<R> | void>}
      */
-    protected async _fetchSSE<R extends Object>(url: string, requestInit: OpenAI.FetchRequestInit): Promise<OpenAI.AnswerResponse<R> | void> {
+    protected async fetchSSE<R extends Object>(url: string, requestInit: FetchRequestInit): Promise<AnswerResponse<R> | void> {
         const { onMessage, ...fetchOptions } = requestInit;
-        const response = await fetch(url, { signal: this._abortController.signal, ...fetchOptions }) as OpenAI.AnswerResponse<R>
+        const response = await fetch(url, { signal: this.abortController.signal, ...fetchOptions }) as AnswerResponse<R>
         if (!response.ok) {
             // 走到这一步是OpenAI接口错误的时候 如果其他后端应用封装了OpenAI接口即使发生错误也不一定 走到这步 
-            const errorOption: OpenAI.ChatgptErrorOption = {
+            const errorOption: ChatgptErrorOption = {
                 url: response.url,
                 status: response.status,
                 statusText: response.statusText
@@ -270,9 +257,11 @@ export class Core {
         if (!onMessage) {
             return response;
         }
-        const parser = this._createParser(onMessage);
+        const parser = this.createParser(onMessage);
         const body = response.body;
-        for await (const chunk of this.streamAsyncIterable(body!)) {
+        if (!body) return;
+        
+        for await (const chunk of this.streamAsyncIterable(body)) {
             const chunkString = new TextDecoder().decode(chunk);
             parser.feed(chunkString);
         }
@@ -282,7 +271,7 @@ export class Core {
      * @param {(p:string)=>void} onMessage 
      * @returns {EventSourceParser}
      */
-    private _createParser(onMessage: (p: string) => void): EventSourceParser {
+    private createParser(onMessage: (p: string) => void): EventSourceParser {
         return createParser((event) => {
             if (event.type === 'event') {
                 onMessage?.(event.data);
@@ -295,7 +284,7 @@ export class Core {
     /**
      * @description 清空promise
      */
-    protected clearablePromise<V = any>(inputPromise: PromiseLike<V>, options: OpenAI.ClearablePromiseOptions) {
+    protected clearablePromise<V = any>(inputPromise: PromiseLike<V>, options: ClearablePromiseOptions) {
         const { milliseconds, message } = options
         let timer: ReturnType<typeof setTimeout> | undefined
         const wrappedPromise = new Promise<V>((resolve, reject) => {
@@ -306,8 +295,8 @@ export class Core {
             try {
                 timer = setTimeout.call(undefined, () => {
                     // 终止请求
-                    this._abortController.abort()
-                    this._abortController = new AbortController()
+                    this.abortController.abort()
+                    this.abortController = new AbortController()
                     const errorMessage = message ?? `Promise timed out after ${milliseconds} milliseconds`
                     const timeoutError = new ChatgptError(errorMessage)
                     reject(timeoutError)
@@ -316,9 +305,14 @@ export class Core {
             } catch (error) {
                 reject(error)
             } finally {
-                inputPromise.then((inputPromiseResult) => {
-                    resolve(inputPromiseResult)
-                })
+                inputPromise.then(
+                    (inputPromiseResult) => {
+                        resolve(inputPromiseResult)
+                    },
+                    (error) => {
+                        reject(error)
+                    }
+                )
             }
         })
 
@@ -338,14 +332,14 @@ export class Core {
      * @returns {void}
      */
     public cancelConversation(reson?: string) {
-        this._abortController.abort(reson)
-        this._abortController = new AbortController()
+        this.abortController.abort(reson)
+        this.abortController = new AbortController()
     }
 
 
     public getModels() {
-        const requestInit = { method: 'POST', headers: this.headers }
-        return this._fetchSSE(this.modelUrl, requestInit)
+        const requestInit = { method: 'GET', headers: this.headers }
+        return this.fetchSSE<ListModelsResponse>(this.modelUrl, requestInit)
     }
 }
 
@@ -359,7 +353,7 @@ export class ChatgptError extends Error {
     status?: number;
     statusText?: string;
     url?: string;
-    constructor(message: string, option?: OpenAI.ChatgptErrorOption) {
+    constructor(message: string, option?: ChatgptErrorOption) {
         super(message)
         if (option) {
             const { status, statusText, url } = option
@@ -369,11 +363,3 @@ export class ChatgptError extends Error {
         }
     }
 }
-
-
-
-
-
-
-
-
