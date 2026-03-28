@@ -24,6 +24,10 @@ export declare interface BaseRequestParams {
     presence_penalty?: number | null;
     frequency_penalty?: number | null;
     user?: string;
+    prompt_cache_key?: string;
+    prompt_cache_retention?: string;
+    reasoning_effort?: 'none' | 'minimal' | 'low' | 'medium' | 'high' | 'xhigh';
+    verbosity?: 'low' | 'medium' | 'high';
     tools?: Array<Tool>;
     tool_choice?: string | {
         type: 'function';
@@ -31,6 +35,36 @@ export declare interface BaseRequestParams {
             name: string;
         };
     };
+    parallel_tool_calls?: boolean;
+    store?: boolean | null;
+    metadata?: Record<string, string>;
+    response_format?: {
+        type: 'text';
+    } | {
+        type: 'json_object';
+    } | {
+        type: 'json_schema';
+        json_schema: {
+            name: string;
+            description?: string;
+            schema?: Record<string, any>;
+            strict?: boolean;
+        };
+    };
+    stream_options?: {
+        include_usage?: boolean;
+    };
+    modalities?: Array<'text' | 'audio'> | string[];
+    audio?: {
+        format: 'wav' | 'mp3' | 'flac' | 'opus' | 'pcm16';
+        voice: string | {
+            id: string;
+        };
+    } | null;
+    prediction?: Record<string, any>;
+    service_tier?: 'auto' | 'default' | 'flex' | 'priority' | string;
+    safety_identifier?: string;
+    web_search_options?: Record<string, any>;
 }
 
 export declare interface BaseResponse {
@@ -88,7 +122,7 @@ export declare interface BaseSendMessageOptions {
     name?: string;
 }
 
-export declare type BuildConversationReturns<R extends Role | "gpt-assistant"> = R extends 'user' ? Conversation : R extends 'gpt-assistant' ? AssistantConversation : R extends 'tool' ? Conversation : R extends 'function' ? Conversation : undefined;
+export declare type BuildConversationReturns<R extends Role | "gpt-assistant"> = R extends 'user' ? Conversation : R extends 'assistant' ? Conversation : R extends 'gpt-assistant' ? AssistantConversation : R extends 'system' ? Conversation : R extends 'tool' ? Conversation : R extends 'function' ? Conversation : undefined;
 
 export declare class ChatClient extends ClientBase {
     /**
@@ -114,10 +148,12 @@ export declare class ChatClient extends ClientBase {
      * @param {ChatSendMessageOptions} options
      * @returns {Promise<AssistantConversation>}
      */
-    sendMessage(question: string, options: ChatSendMessageOptions): Promise<AssistantConversation>;
+    sendMessage(question: string, options?: ChatSendMessageOptions): Promise<AssistantConversation>;
+    private toChatRequestMessage;
+    private mergeToolCalls;
     /**
      * @desc 获取会话消息历史
-     * @param {string} text
+     * @param {Conversation} currentMessage
      * @param {Required<ChatSendMessageOptions>} options
      * @returns {Promise<{ messages: ChatRequestMessage[]; }>}
      */
@@ -178,7 +214,7 @@ export declare interface ChatResponse extends BaseResponse {
 
 export declare interface ChatResponseChoice extends BaseResponseChoice {
     message?: ChatResponseMessage;
-    delta: ChatResponseDelta;
+    delta?: ChatResponseDelta;
 }
 
 export declare interface ChatResponseDelta extends ChatResponseMessage {
@@ -189,6 +225,7 @@ export declare interface ChatResponseMessage {
     role: Role;
     content: string | null;
     tool_calls?: Array<ToolCall>;
+    function_call?: FunctionCall;
 }
 
 export declare interface ChatSendMessageOptions extends BaseSendMessageOptions {
@@ -239,6 +276,10 @@ export declare class ClientBase {
      * @returns {string}
      */
     protected parseMarkdown(text: string): string;
+    /**
+     * @desc 统一拼接 API 地址，兼容是否已包含 `/v1`
+     */
+    protected buildApiUrl(path: string): string;
     /**
      * @desc models 请求地址
      * @returns {string}
@@ -293,6 +334,10 @@ export declare class ClientBase {
      */
     protected debugLog(action: string, ...args: any[]): void;
     /**
+     * @desc 将消息序列化用于 Token 估算，尽量覆盖 tool/function call 元数据
+     */
+    protected serializeConversationForTokenCount(message: Partial<Conversation>): string;
+    /**
      * 这个方法的作用是将一个 ReadableStream 对象转换成一个异步迭代器 AsyncIterable，
      * 该迭代器会在每次迭代中返回一个 Uint8Array 类型的数据块。具体来说，该方法会获取一个 ReadableStream 对象的读取器（reader），
      * 然后在一个无限循环中等待读取器返回数据。每次读取器返回数据时，该方法都会返回一个包含数据的 Uint8Array 对象。
@@ -324,7 +369,7 @@ export declare class ClientBase {
      * @returns {void}
      */
     cancelConversation(reson?: string): void;
-    getModels(): Promise<void | AnswerResponse<Object>>;
+    getModels(): Promise<void | AnswerResponse<ListModelsResponse>>;
 }
 
 /**
@@ -332,8 +377,10 @@ export declare class ClientBase {
  */
 export declare interface ClientBaseOptions {
     apiKey: string;
-    /** 请求连接 default https://api.OpenAI.com */
+    /** 请求连接，支持 `https://api.openai.com` 和 `https://api.openai.com/v1` */
     apiBaseUrl?: string;
+    /** `apiBaseUrl` 的别名，便于与官方 SDK 配置风格保持一致 */
+    baseURL?: string;
     /** 组织 */
     organization?: string;
     /** 是否开启debug模式 */
@@ -363,7 +410,7 @@ export declare interface Conversation {
     role: Role;
     content: string | null;
     messageId: string;
-    parentMessageId: string;
+    parentMessageId?: string;
     name?: string;
     tool_calls?: Array<ToolCall>;
     tool_call_id?: string;
@@ -389,6 +436,17 @@ export declare interface FunctionDef {
     name: string;
     description?: string;
     parameters?: Record<string, any>;
+}
+
+export declare interface ListModelsResponse {
+    object: string;
+    data: Array<Model>;
+}
+
+export declare interface Model {
+    id: string;
+    object: string;
+    owned_by: string;
 }
 
 /**

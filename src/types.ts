@@ -19,8 +19,10 @@ export interface FetchRequestInit extends RequestInit {
  */
 export interface ClientBaseOptions {
     apiKey: string;
-    /** 请求连接 default https://api.OpenAI.com */
+    /** 请求连接，支持 `https://api.openai.com` 和 `https://api.openai.com/v1` */
     apiBaseUrl?: string;
+    /** `apiBaseUrl` 的别名，便于与官方 SDK 配置风格保持一致 */
+    baseURL?: string;
     /** 组织 */
     organization?: string;
     /** 是否开启debug模式 */
@@ -56,8 +58,12 @@ export interface AssistantConversation extends Conversation {
 export type BuildConversationReturns<R extends Role | "gpt-assistant"> =
     R extends 'user'
     ? Conversation
+    : R extends 'assistant'
+    ? Conversation
     : R extends 'gpt-assistant'
     ? AssistantConversation
+    : R extends 'system'
+    ? Conversation
     : R extends 'tool'
     ? Conversation
     : R extends 'function'
@@ -93,8 +99,38 @@ export interface BaseRequestParams {
     presence_penalty?: number | null;
     frequency_penalty?: number | null;
     user?: string;
+    prompt_cache_key?: string;
+    prompt_cache_retention?: string;
+    reasoning_effort?: 'none' | 'minimal' | 'low' | 'medium' | 'high' | 'xhigh';
+    verbosity?: 'low' | 'medium' | 'high';
     tools?: Array<Tool>;
     tool_choice?: string | { type: 'function'; function: { name: string } };
+    parallel_tool_calls?: boolean;
+    store?: boolean | null;
+    metadata?: Record<string, string>;
+    response_format?: { type: 'text' }
+        | { type: 'json_object' }
+        | {
+            type: 'json_schema';
+            json_schema: {
+                name: string;
+                description?: string;
+                schema?: Record<string, any>;
+                strict?: boolean;
+            };
+        };
+    stream_options?: {
+        include_usage?: boolean;
+    };
+    modalities?: Array<'text' | 'audio'> | string[];
+    audio?: {
+        format: 'wav' | 'mp3' | 'flac' | 'opus' | 'pcm16';
+        voice: string | { id: string };
+    } | null;
+    prediction?: Record<string, any>;
+    service_tier?: 'auto' | 'default' | 'flex' | 'priority' | string;
+    safety_identifier?: string;
+    web_search_options?: Record<string, any>;
 }
 
 /**
@@ -125,7 +161,7 @@ export interface Conversation {
     role: Role;
     content: string | null;
     messageId: string;
-    parentMessageId: string;
+    parentMessageId?: string;
     name?: string;
     tool_calls?: Array<ToolCall>;
     tool_call_id?: string;
@@ -208,6 +244,7 @@ export interface ChatResponseMessage {
     role: Role;
     content: string | null;
     tool_calls?: Array<ToolCall>;
+    function_call?: FunctionCall;
 }
 
 export interface ChatResponseDelta extends ChatResponseMessage {
@@ -216,7 +253,7 @@ export interface ChatResponseDelta extends ChatResponseMessage {
 
 export interface ChatResponseChoice extends BaseResponseChoice {
     message?: ChatResponseMessage;
-    delta: ChatResponseDelta;
+    delta?: ChatResponseDelta;
 }
 
 /**

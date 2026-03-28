@@ -16,7 +16,7 @@ const client = new ChatClient({
   apiKey: apiKey,
   debug: true,
   requestParams: {
-    model: 'gpt-3.5-turbo',
+    model: process.env.OPENAI_MODEL || 'gpt-5-mini',
   },
 });
 

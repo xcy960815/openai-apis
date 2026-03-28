@@ -1,6 +1,6 @@
 # openai-apis
 
-一个轻量级、类型安全且功能强大的 LLM (OpenAI/DeepSeek) 接口封装库。支持 Node.js 和浏览器环境，内置流式响应（Streaming）、上下文对话管理和 Token 计算功能。
+一个轻量级、类型安全且功能强大的 OpenAI-compatible Chat Completions SDK。支持 Node.js 和浏览器环境，内置流式响应（Streaming）、上下文对话管理、工具调用（Tool Calling）和 Token 计算功能。
 
 [![npm version](https://img.shields.io/npm/v/openai-apis.svg)](https://www.npmjs.com/package/openai-apis)
 [![license](https://img.shields.io/npm/l/openai-apis.svg)](https://github.com/xcy960815/openai-apis/blob/main/LICENSE)
@@ -11,7 +11,8 @@
 - 🚀 **简单易用**：开箱即用，API 设计直观，统一了不同模型的调用方式。
 - 🌊 **流式响应**：完美支持 Server-Sent Events (SSE)，实时获取 AI 回复，体验丝滑。
 - 🧠 **上下文管理**：自动维护对话历史，轻松实现多轮对话，无需手动拼接消息。
-- 🔌 **多模型支持**：支持 OpenAI (GPT-3.5/4) 以及兼容 OpenAI 协议的模型（如 **DeepSeek**）。
+- 🔌 **多模型支持**：支持 OpenAI 以及兼容 OpenAI 协议的模型（如 **DeepSeek**）。
+- 🛠️ **工具调用**：支持 `tools` / `tool_choice`，并正确回传 `role: 'tool'` 的结果消息。
 - 📝 **Markdown 转 HTML**：内置 Markdown 解析器，可配置直接输出 HTML 格式。
 - 🔢 **Token 计算**：内置 Token 计算器，自动管理上下文长度，防止超额。
 - 🌐 **多端支持**：同时支持 Node.js (14+) 和 浏览器环境。
@@ -36,7 +37,11 @@ import { ChatClient } from 'openai-apis';
 
 const client = new ChatClient({
   apiKey: 'your-openai-api-key',
-  // apiBaseUrl: 'https://api.openai.com', // 默认为 OpenAI 官方地址
+  // 也可以传 baseURL，且支持是否自带 /v1
+  // baseURL: 'https://api.openai.com',
+  requestParams: {
+    model: 'gpt-5-mini',
+  }
 });
 
 async function main() {
@@ -109,7 +114,8 @@ async function chat() {
 | --- | --- | --- | --- |
 | `apiKey` | `string` | - | **必填**。API Key |
 | `apiBaseUrl` | `string` | `https://api.openai.com` | API 基础地址，支持 DeepSeek 等第三方服务 |
-| `requestParams` | `object` | `{ model: 'gpt-3.5-turbo' }` | 默认请求参数，可设置 `model`, `temperature` 等 |
+| `baseURL` | `string` | - | `apiBaseUrl` 的别名，便于与官方 SDK 配置保持一致 |
+| `requestParams` | `object` | `{ model: 'gpt-5-mini' }` | 默认请求参数，可设置 `model`, `temperature`, `reasoning_effort`, `verbosity`, `response_format`, `parallel_tool_calls` 等 |
 | `debug` | `boolean` | `false` | 是否开启调试日志 |
 | `markdown2Html` | `boolean` | `false` | 是否将 Markdown 转换为 HTML |
 | `systemMessage` | `string` | (默认提示词) | 系统预设角色/提示词 |
@@ -123,7 +129,54 @@ async function chat() {
 | `parentMessageId` | `string` | 上一条消息的 ID，用于关联上下文 |
 | `onProgress` | `function` | 流式响应回调函数 |
 | `systemMessage` | `string` | 覆盖当前对话的系统提示词 |
+| `role` | `string` | 当前发送消息的角色，支持 `user` / `assistant` / `system` / `tool` / `function` |
 | `requestParams` | `object` | 覆盖初始化的请求参数 (如临时切换模型) |
+
+## 🛠️ Tool Calling 示例
+
+```typescript
+const res1 = await client.sendMessage('上海天气怎么样？', {
+  requestParams: {
+    model: 'gpt-5-mini',
+    tools: [
+      {
+        type: 'function',
+        function: {
+          name: 'get_current_weather',
+          description: 'Get the current weather in a given location',
+          parameters: {
+            type: 'object',
+            properties: {
+              location: { type: 'string' }
+            },
+            required: ['location']
+          }
+        }
+      }
+    ],
+    tool_choice: 'auto'
+  }
+});
+
+if (res1.tool_calls?.length) {
+  const toolCall = res1.tool_calls[0];
+  const toolResult = JSON.stringify({ location: 'Shanghai', temperature: 22 });
+
+  const res2 = await client.sendMessage(toolResult, {
+    parentMessageId: res1.messageId,
+    role: 'tool',
+    tool_call_id: toolCall.id,
+    name: toolCall.function.name,
+  });
+
+  console.log(res2.content);
+}
+```
+
+## 📌 说明
+
+- 本库聚焦 OpenAI-compatible 的 Chat Completions 接口，适合同时对接 OpenAI 和其他兼容服务。
+- 如果你只面向 OpenAI 官方并准备采用更新的 Responses API，优先考虑官方 SDK；本库更偏向轻量、兼容、易嵌入的封装方式。
 
 ## 🤝 贡献
 

@@ -39,11 +39,11 @@ export class ClientBase {
 
     constructor(options: ClientBaseOptions) {
 
-        const { apiKey, apiBaseUrl, organization, debug, withContent, maxModelTokens, maxResponseTokens, systemMessage, milliseconds, markdown2Html } = options;
+        const { apiKey, apiBaseUrl, baseURL, organization, debug, withContent, maxModelTokens, maxResponseTokens, systemMessage, milliseconds, markdown2Html } = options;
 
         this.apiKey = apiKey;
 
-        this.apiBaseUrl = apiBaseUrl ?? 'https://api.OpenAI.com';
+        this.apiBaseUrl = (apiBaseUrl ?? baseURL ?? 'https://api.openai.com').replace(/\/+$/, '');
 
         this.organization = organization;
 
@@ -78,11 +78,21 @@ export class ClientBase {
     }
 
     /**
+     * @desc 统一拼接 API 地址，兼容是否已包含 `/v1`
+     */
+    protected buildApiUrl(path: string): string {
+        const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+        return this.apiBaseUrl.endsWith('/v1')
+            ? `${this.apiBaseUrl}${normalizedPath}`
+            : `${this.apiBaseUrl}/v1${normalizedPath}`;
+    }
+
+    /**
      * @desc models 请求地址
      * @returns {string}
      */
     protected get modelUrl(): string {
-        return `${this.apiBaseUrl}${'/v1/models'}`
+        return this.buildApiUrl('/models')
     }
 
     /**
@@ -128,13 +138,12 @@ export class ClientBase {
         content: string,
         option: BaseSendMessageOptions
     ): BuildConversationReturns<R> {
-        const _content = this.parseMarkdown(content);
-        if (role === 'user' || role === 'tool' || role === 'function' || role === 'system') {
+        if (role === 'user' || role === 'assistant' || role === 'tool' || role === 'function' || role === 'system') {
             return {
                 role: role as Role,
                 messageId: option.messageId || this.uuid,
                 parentMessageId: option.parentMessageId,
-                content: _content,
+                content,
                 tool_call_id: option.tool_call_id,
                 name: option.name,
             } as BuildConversationReturns<R>;
@@ -143,7 +152,7 @@ export class ClientBase {
                 role: "assistant",
                 messageId: "",
                 parentMessageId: option.messageId || this.uuid,
-                content: _content,
+                content,
                 detail: null
             } as BuildConversationReturns<R>;
         } else {
@@ -194,6 +203,20 @@ export class ClientBase {
         if (this.debug) {
             console.log(`OpenAI-apis:DEBUG:${action}`, ...args);
         }
+    }
+
+    /**
+     * @desc 将消息序列化用于 Token 估算，尽量覆盖 tool/function call 元数据
+     */
+    protected serializeConversationForTokenCount(message: Partial<Conversation>): string {
+        return JSON.stringify({
+            role: message.role,
+            content: message.content ?? '',
+            name: message.name,
+            tool_call_id: message.tool_call_id,
+            tool_calls: message.tool_calls,
+            function_call: message.function_call,
+        });
     }
     /**
      * 这个方法的作用是将一个 ReadableStream 对象转换成一个异步迭代器 AsyncIterable，
@@ -297,7 +320,9 @@ export class ClientBase {
                     // 终止请求
                     this.abortController.abort()
                     this.abortController = new AbortController()
-                    const errorMessage = message ?? `Promise timed out after ${milliseconds} milliseconds`
+                    const errorMessage = message && message.trim()
+                        ? message
+                        : `Promise timed out after ${milliseconds} milliseconds`
                     const timeoutError = new ChatgptError(errorMessage)
                     reject(timeoutError)
                 }, milliseconds)

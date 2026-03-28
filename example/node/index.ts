@@ -7,7 +7,7 @@ dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 
 const apiKey = process.env.OPENAI_API_KEY;
 const apiBaseUrl = process.env.OPENAI_API_BASE_URL;
-const model = process.env.OPENAI_MODEL || 'deepseek-chat';
+const model = process.env.OPENAI_MODEL || 'gpt-5-mini';
 
 if (!apiKey) {
   console.error('Error: OPENAI_API_KEY not found in .env file');

@@ -1,14 +1,14 @@
 import { ChatClient } from '../../src/index';
-import { ListModelsResponse } from '../../src/types';
 
 // --- State ---
 const config = {
     apiKey: import.meta.env.OPENAI_API_KEY || '',
-    apiBaseUrl: import.meta.env.OPENAI_API_BASE_URL || 'https://api.deepseek.com',
-    model: import.meta.env.OPENAI_MODEL || 'deepseek-chat',
+    apiBaseUrl: import.meta.env.OPENAI_API_BASE_URL || 'https://api.openai.com',
+    model: import.meta.env.OPENAI_MODEL || 'gpt-5-mini',
     systemMessage: 'You are a helpful assistant.',
     temperature: 0.8,
-    maxResponseTokens: 1000
+    maxResponseTokens: 1000,
+    markdown2Html: false,
 };
 
 let chatClient: ChatClient;
@@ -71,6 +71,7 @@ function initClient() {
         milliseconds: 60000,
         systemMessage: config.systemMessage,
         maxResponseTokens: config.maxResponseTokens,
+        markdown2Html: config.markdown2Html,
         requestParams: {
             model: config.model,
             temperature: config.temperature,
@@ -83,17 +84,25 @@ function scrollToBottom() {
     messagesContainer.scrollTop = messagesContainer.scrollHeight;
 }
 
-function createMessageElement(role: 'user' | 'assistant', content: string): HTMLElement {
+function setMessageContent(target: HTMLElement, content: string, allowHtml = config.markdown2Html) {
+    if (allowHtml) {
+        target.innerHTML = content;
+    } else {
+        target.textContent = content;
+    }
+}
+
+function createMessageElement(role: 'user' | 'assistant', content: string, allowHtml = false): HTMLElement {
     const msgDiv = document.createElement('div');
     msgDiv.className = `message ${role}`;
     
     const roleLabel = document.createElement('div');
     roleLabel.className = 'role-label';
-    roleLabel.textContent = role === 'user' ? 'You' : 'DeepSeek';
+    roleLabel.textContent = role === 'user' ? 'You' : 'Assistant';
     
     const contentDiv = document.createElement('div');
     contentDiv.className = 'content';
-    contentDiv.innerHTML = content;
+    setMessageContent(contentDiv, content, allowHtml);
     
     msgDiv.appendChild(roleLabel);
     msgDiv.appendChild(contentDiv);
@@ -101,8 +110,8 @@ function createMessageElement(role: 'user' | 'assistant', content: string): HTML
     return msgDiv;
 }
 
-function appendMessage(role: 'user' | 'assistant', content: string): HTMLElement {
-    const msgEl = createMessageElement(role, content);
+function appendMessage(role: 'user' | 'assistant', content: string, allowHtml = false): HTMLElement {
+    const msgEl = createMessageElement(role, content, allowHtml);
     messagesContainer.appendChild(msgEl);
     scrollToBottom();
     return msgEl.querySelector('.content') as HTMLElement;
@@ -123,7 +132,7 @@ async function fetchModels() {
             apiBaseUrl: apiBaseUrlInput.value,
             withContent: true,
             milliseconds: 60000,
-            requestParams: { model: 'deepseek-chat' } // dummy
+            requestParams: { model: 'gpt-5-mini' } // dummy
         });
 
         const res = await tempClient.getModels();
@@ -182,34 +191,36 @@ async function sendMessage() {
     appendMessage('user', text);
 
     // Assistant Placeholder
-    currentAssistantMessageDiv = appendMessage('assistant', '<span class="typing">Thinking...</span>');
+    currentAssistantMessageDiv = appendMessage('assistant', 'Thinking...');
 
     try {
         const res = await chatClient.sendMessage(text, {
             parentMessageId,
             onProgress: (partialResponse) => {
                 if (currentAssistantMessageDiv && partialResponse.content) {
-                    currentAssistantMessageDiv.innerHTML = partialResponse.content;
+                    setMessageContent(currentAssistantMessageDiv, partialResponse.content);
                     scrollToBottom();
                 }
             },
         });
         parentMessageId = res.messageId;
         if (currentAssistantMessageDiv) {
-            currentAssistantMessageDiv.innerHTML = res.content || '';
+            setMessageContent(currentAssistantMessageDiv, res.content || '');
         }
     } catch (error: any) {
         console.error(error);
         if (currentAssistantMessageDiv) {
-            if (error.message && (error.message.includes('aborted') || error.name === 'AbortError')) {
-                const currentContent = currentAssistantMessageDiv.innerHTML;
-                if (currentContent && !currentContent.includes('Thinking...')) {
-                    currentAssistantMessageDiv.innerHTML += '<br/><span class="cancelled">(Request cancelled)</span>';
+            const isAborted = error.message && (error.message.includes('aborted') || error.name === 'AbortError');
+            const currentContent = currentAssistantMessageDiv.textContent || '';
+
+            if (isAborted) {
+                if (currentContent && currentContent !== 'Thinking...') {
+                    setMessageContent(currentAssistantMessageDiv, `${currentContent}\n(Request cancelled)`);
                 } else {
-                    currentAssistantMessageDiv.innerHTML = '<span class="cancelled">Request cancelled.</span>';
+                    setMessageContent(currentAssistantMessageDiv, 'Request cancelled.');
                 }
             } else {
-                currentAssistantMessageDiv.innerHTML = `<span class="error">Error: ${error.message}</span>`;
+                setMessageContent(currentAssistantMessageDiv, `Error: ${error.message}`);
             }
         }
     } finally {
