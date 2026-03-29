@@ -8,7 +8,15 @@ This directory contains examples and test scripts for running the `openai-apis` 
     ```bash
     npm run build
     ```
-2.  Create a `.env` file in the project root (copy from `.env.example`) and add your `OPENAI_API_KEY`.
+2.  Create a root `.env` file by copying `.env.example`.
+3.  Fill in these environment variables in the project root `.env`:
+    ```bash
+    OPENAI_API_KEY=your_api_key_here
+    OPENAI_API_BASE_URL=https://api.openai.com
+    OPENAI_MODEL=gpt-5-mini
+    ```
+
+All Node examples in this directory read the same root `.env` file. `OPENAI_API_BASE_URL` is optional for the basic/CLI examples but recommended so every example uses the same endpoint configuration.
 
 ## Scripts
 
@@ -25,7 +33,7 @@ npm run example:node:cli
 ```
 
 ### Run Function Calling Example
-Demonstrates how to use OpenAI Function Calling (Tools).
+Demonstrates how to use OpenAI Function Calling (Tools). This example requires both `OPENAI_API_KEY` and `OPENAI_API_BASE_URL` to be set in the root `.env`.
 ```bash
 npm run example:node:fc
 ```

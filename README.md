@@ -28,6 +28,24 @@ pnpm add openai-apis
 yarn add openai-apis
 ```
 
+## 🔐 示例环境变量
+
+仓库里的 Node 示例和浏览器示例共用根目录 `.env`，变量名保持一致：
+
+```bash
+cp .env.example .env
+```
+
+```bash
+OPENAI_API_KEY=your_api_key_here
+OPENAI_API_BASE_URL=https://api.openai.com
+OPENAI_MODEL=gpt-5-mini
+```
+
+- `OPENAI_API_KEY`：必填
+- `OPENAI_API_BASE_URL`：推荐填写；浏览器示例和工具调用示例都会读取它
+- `OPENAI_MODEL`：可选，不填时默认使用 `gpt-5-mini`
+
 ## 🚀 快速开始
 
 ### 1. 基础对话 (OpenAI)

@@ -6,17 +6,25 @@ import * as path from 'path';
 dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 
 const apiKey = process.env.OPENAI_API_KEY;
+const apiBaseUrl = process.env.OPENAI_API_BASE_URL;
+const model = process.env.OPENAI_MODEL || 'gpt-5-mini';
 
 if (!apiKey) {
   console.error('Error: OPENAI_API_KEY not found in .env file');
   process.exit(1);
 }
 
+if (!apiBaseUrl) {
+  console.error('Error: OPENAI_API_BASE_URL not found in .env file');
+  process.exit(1);
+}
+
 const client = new ChatClient({
-  apiKey: apiKey,
+  apiKey,
+  apiBaseUrl,
   debug: true,
   requestParams: {
-    model: process.env.OPENAI_MODEL || 'gpt-5-mini',
+    model,
   },
 });
 
@@ -58,7 +66,7 @@ function getCurrentWeather(location: string, unit: string = 'celsius') {
 
 async function main() {
   console.log('--- Testing Function Calling ---');
-  
+
   try {
     // 1. Send user message with tools
     console.log('User: What is the weather in Shanghai?');
@@ -66,7 +74,7 @@ async function main() {
       requestParams: {
         tools: tools as any,
         tool_choice: 'auto',
-      }
+      },
     });
 
     console.log('Assistant Response 1:', res1);
@@ -75,7 +83,7 @@ async function main() {
     if (res1.tool_calls && res1.tool_calls.length > 0) {
       const toolCall = res1.tool_calls[0];
       console.log('Tool Call Requested:', toolCall.function.name);
-      
+
       if (toolCall.function.name === 'get_current_weather') {
         const args = JSON.parse(toolCall.function.arguments);
         const functionResult = getCurrentWeather(args.location, args.unit);
@@ -83,7 +91,7 @@ async function main() {
         // 3. Send tool result back to the model
         // We need to pass the tool result with role 'tool' and the tool_call_id
         console.log('Sending tool result back to model...');
-        
+
         const res2 = await client.sendMessage(functionResult, {
           parentMessageId: res1.messageId,
           role: 'tool',

@@ -39,14 +39,16 @@ describe('ChatClient', () => {
       id: 'chatcmpl-123',
       object: 'chat.completion',
       created: 1677652288,
-      choices: [{
-        index: 0,
-        message: {
-          role: 'assistant',
-          content: '**Hello**',
+      choices: [
+        {
+          index: 0,
+          message: {
+            role: 'assistant',
+            content: '**Hello**',
+          },
+          finish_reason: 'stop',
         },
-        finish_reason: 'stop',
-      }],
+      ],
       usage: {
         prompt_tokens: 9,
         completion_tokens: 12,
@@ -67,34 +69,40 @@ describe('ChatClient', () => {
   });
 
   it('streams incremental content and resolves the final assistant response', async () => {
-    (global.fetch as jest.Mock).mockResolvedValue(createSseResponse([
-      {
-        id: 'chatcmpl-stream',
-        object: 'chat.completion.chunk',
-        created: 1677652288,
-        model: 'gpt-5-mini',
-        choices: [{
-          index: 0,
-          delta: {
-            role: 'assistant',
-            content: 'Hel',
-          },
-        }],
-      },
-      {
-        id: 'chatcmpl-stream',
-        object: 'chat.completion.chunk',
-        created: 1677652289,
-        model: 'gpt-5-mini',
-        choices: [{
-          index: 0,
-          delta: {
-            content: 'lo',
-          },
-        }],
-      },
-      '[DONE]',
-    ]));
+    (global.fetch as jest.Mock).mockResolvedValue(
+      createSseResponse([
+        {
+          id: 'chatcmpl-stream',
+          object: 'chat.completion.chunk',
+          created: 1677652288,
+          model: 'gpt-5-mini',
+          choices: [
+            {
+              index: 0,
+              delta: {
+                role: 'assistant',
+                content: 'Hel',
+              },
+            },
+          ],
+        },
+        {
+          id: 'chatcmpl-stream',
+          object: 'chat.completion.chunk',
+          created: 1677652289,
+          model: 'gpt-5-mini',
+          choices: [
+            {
+              index: 0,
+              delta: {
+                content: 'lo',
+              },
+            },
+          ],
+        },
+        '[DONE]',
+      ]),
+    );
 
     const snapshots: Array<string | null> = [];
     const onProgress = jest.fn((partialResponse) => {
@@ -118,27 +126,31 @@ describe('ChatClient', () => {
         id: 'chatcmpl-first',
         object: 'chat.completion',
         created: 1677652288,
-        choices: [{
-          index: 0,
-          message: {
-            role: 'assistant',
-            content: 'Nice to meet you, **Ada**.',
+        choices: [
+          {
+            index: 0,
+            message: {
+              role: 'assistant',
+              content: 'Nice to meet you, **Ada**.',
+            },
+            finish_reason: 'stop',
           },
-          finish_reason: 'stop',
-        }],
+        ],
       },
       {
         id: 'chatcmpl-second',
         object: 'chat.completion',
         created: 1677652290,
-        choices: [{
-          index: 0,
-          message: {
-            role: 'assistant',
-            content: 'Your name is Ada.',
+        choices: [
+          {
+            index: 0,
+            message: {
+              role: 'assistant',
+              content: 'Your name is Ada.',
+            },
+            finish_reason: 'stop',
           },
-          finish_reason: 'stop',
-        }],
+        ],
       },
     ];
 
@@ -187,28 +199,32 @@ describe('ChatClient', () => {
         id: 'chatcmpl-tool-request',
         object: 'chat.completion',
         created: 1677652288,
-        choices: [{
-          index: 0,
-          message: {
-            role: 'assistant',
-            content: null,
-            tool_calls: [toolCall],
+        choices: [
+          {
+            index: 0,
+            message: {
+              role: 'assistant',
+              content: null,
+              tool_calls: [toolCall],
+            },
+            finish_reason: 'tool_calls',
           },
-          finish_reason: 'tool_calls',
-        }],
+        ],
       },
       {
         id: 'chatcmpl-tool-answer',
         object: 'chat.completion',
         created: 1677652290,
-        choices: [{
-          index: 0,
-          message: {
-            role: 'assistant',
-            content: 'It is 22C and sunny.',
+        choices: [
+          {
+            index: 0,
+            message: {
+              role: 'assistant',
+              content: 'It is 22C and sunny.',
+            },
+            finish_reason: 'stop',
           },
-          finish_reason: 'stop',
-        }],
+        ],
       },
     ];
 
@@ -220,12 +236,14 @@ describe('ChatClient', () => {
     const client = new ChatClient({ apiKey: 'test-key' });
     const firstResponse = await client.sendMessage('What is the weather in Shanghai?', {
       requestParams: {
-        tools: [{
-          type: 'function',
-          function: {
-            name: 'get_current_weather',
+        tools: [
+          {
+            type: 'function',
+            function: {
+              name: 'get_current_weather',
+            },
           },
-        }],
+        ],
         tool_choice: 'auto',
       },
     });

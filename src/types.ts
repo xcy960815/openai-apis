@@ -1,153 +1,151 @@
 export type ClearablePromiseOptions = {
-    milliseconds: number
-    message?: string
-}
+  milliseconds: number;
+  message?: string;
+};
 
 export interface ChatgptErrorOption {
-    status?: number;
-    statusText?: string;
-    url?: string;
+  status?: number;
+  statusText?: string;
+  url?: string;
 }
 /**
  * @desc fetch 请求配置
  */
 export interface FetchRequestInit extends RequestInit {
-    onMessage?: (message: string) => void;
+  onMessage?: (message: string) => void;
 }
 /**
  * @desc 模型公共参数
  */
 export interface ClientBaseOptions {
-    apiKey: string;
-    /** 请求连接，支持 `https://api.openai.com` 和 `https://api.openai.com/v1` */
-    apiBaseUrl?: string;
-    /** `apiBaseUrl` 的别名，便于与官方 SDK 配置风格保持一致 */
-    baseURL?: string;
-    /** 组织 */
-    organization?: string;
-    /** 是否开启debug模式 */
-    debug?: boolean;
-    /** @defaultValue 4096 **/
-    maxModelTokens?: number;
-    /** @defaultValue 1000 **/
-    maxResponseTokens?: number;
-    /** 是否携带上下文 */
-    withContent?: boolean;
-    /** 系统消息 */
-    systemMessage?: string;
-    /** 超时时间 */
-    milliseconds?: number;
-    /** 是否将markdown语法转换成html */
-    markdown2Html?: boolean;
+  apiKey: string;
+  /** 请求连接，支持 `https://api.openai.com` 和 `https://api.openai.com/v1` */
+  apiBaseUrl?: string;
+  /** `apiBaseUrl` 的别名，便于与官方 SDK 配置风格保持一致 */
+  baseURL?: string;
+  /** 组织 */
+  organization?: string;
+  /** 是否开启debug模式 */
+  debug?: boolean;
+  /** @defaultValue 4096 **/
+  maxModelTokens?: number;
+  /** @defaultValue 1000 **/
+  maxResponseTokens?: number;
+  /** 是否携带上下文 */
+  withContent?: boolean;
+  /** 系统消息 */
+  systemMessage?: string;
+  /** 超时时间 */
+  milliseconds?: number;
+  /** 是否将markdown语法转换成html */
+  markdown2Html?: boolean;
 }
 
 /**
  * @desc 公共返回usage
  */
 export interface ResponseUsage {
-    completion_tokens: number;
-    prompt_tokens: number;
-    total_tokens: number;
+  completion_tokens: number;
+  prompt_tokens: number;
+  total_tokens: number;
 }
-
 
 export interface AssistantConversation extends Conversation {
-    detail?: ChatResponse | null;
+  detail?: ChatResponse | null;
 }
 
-export type BuildConversationReturns<R extends Role | "gpt-assistant"> =
-    R extends 'user'
-    ? Conversation
-    : R extends 'assistant'
+export type BuildConversationReturns<R extends Role | 'gpt-assistant'> = R extends 'user'
+  ? Conversation
+  : R extends 'assistant'
     ? Conversation
     : R extends 'gpt-assistant'
-    ? AssistantConversation
-    : R extends 'system'
-    ? Conversation
-    : R extends 'tool'
-    ? Conversation
-    : R extends 'function'
-    ? Conversation
-    : undefined;
-
+      ? AssistantConversation
+      : R extends 'system'
+        ? Conversation
+        : R extends 'tool'
+          ? Conversation
+          : R extends 'function'
+            ? Conversation
+            : undefined;
 
 export interface BaseResponse {
-    /** id */
-    id: string;
-    /** example "chat.completion" */
-    object: string;
-    /** 创建时间（时间戳） */
-    created: number;
-    /** 本次回答所用到的模型 */
-    model: string;
-    /** 当用户设置stream:true时，不会返回 usage 字段 */
-    usage?: ResponseUsage;
+  /** id */
+  id: string;
+  /** example "chat.completion" */
+  object: string;
+  /** 创建时间（时间戳） */
+  created: number;
+  /** 本次回答所用到的模型 */
+  model: string;
+  /** 当用户设置stream:true时，不会返回 usage 字段 */
+  usage?: ResponseUsage;
 }
 /**
  * @desc 公共请求参数
  */
 export interface BaseRequestParams {
-    /** 模型 */
-    model: string;
-    max_tokens?: number;
-    temperature?: number | null;
-    top_p?: number | null;
-    n?: number | null;
-    stream?: boolean | null;
-    stop?: Array<string> | string;
-    logit_bias?: Record<string, number>;
-    presence_penalty?: number | null;
-    frequency_penalty?: number | null;
-    user?: string;
-    prompt_cache_key?: string;
-    prompt_cache_retention?: string;
-    reasoning_effort?: 'none' | 'minimal' | 'low' | 'medium' | 'high' | 'xhigh';
-    verbosity?: 'low' | 'medium' | 'high';
-    tools?: Array<Tool>;
-    tool_choice?: string | { type: 'function'; function: { name: string } };
-    parallel_tool_calls?: boolean;
-    store?: boolean | null;
-    metadata?: Record<string, string>;
-    response_format?: { type: 'text' }
-        | { type: 'json_object' }
-        | {
-            type: 'json_schema';
-            json_schema: {
-                name: string;
-                description?: string;
-                schema?: Record<string, any>;
-                strict?: boolean;
-            };
+  /** 模型 */
+  model: string;
+  max_tokens?: number;
+  temperature?: number | null;
+  top_p?: number | null;
+  n?: number | null;
+  stream?: boolean | null;
+  stop?: Array<string> | string;
+  logit_bias?: Record<string, number>;
+  presence_penalty?: number | null;
+  frequency_penalty?: number | null;
+  user?: string;
+  prompt_cache_key?: string;
+  prompt_cache_retention?: string;
+  reasoning_effort?: 'none' | 'minimal' | 'low' | 'medium' | 'high' | 'xhigh';
+  verbosity?: 'low' | 'medium' | 'high';
+  tools?: Array<Tool>;
+  tool_choice?: string | { type: 'function'; function: { name: string } };
+  parallel_tool_calls?: boolean;
+  store?: boolean | null;
+  metadata?: Record<string, string>;
+  response_format?:
+    | { type: 'text' }
+    | { type: 'json_object' }
+    | {
+        type: 'json_schema';
+        json_schema: {
+          name: string;
+          description?: string;
+          schema?: Record<string, any>;
+          strict?: boolean;
         };
-    stream_options?: {
-        include_usage?: boolean;
-    };
-    modalities?: Array<'text' | 'audio'> | string[];
-    audio?: {
-        format: 'wav' | 'mp3' | 'flac' | 'opus' | 'pcm16';
-        voice: string | { id: string };
-    } | null;
-    prediction?: Record<string, any>;
-    service_tier?: 'auto' | 'default' | 'flex' | 'priority' | string;
-    safety_identifier?: string;
-    web_search_options?: Record<string, any>;
+      };
+  stream_options?: {
+    include_usage?: boolean;
+  };
+  modalities?: Array<'text' | 'audio'> | string[];
+  audio?: {
+    format: 'wav' | 'mp3' | 'flac' | 'opus' | 'pcm16';
+    voice: string | { id: string };
+  } | null;
+  prediction?: Record<string, any>;
+  service_tier?: 'auto' | 'default' | 'flex' | 'priority' | string;
+  safety_identifier?: string;
+  web_search_options?: Record<string, any>;
 }
 
 /**
  * @desc 公共返回的Choice参数
  */
 export interface BaseResponseChoice {
-    /** 下标 */
-    index?: number;
-    /** 结束原因 */
-    finish_reason?: string | null;
-    /** 参数未知 作用未知 */
-    content_filter_results?: {
-        hate: { filtered: boolean, severity: string }
-        self_harm: { filtered: boolean, severity: string }
-        sexual: { filtered: boolean, severity: string }
-        violence: { filtered: boolean, severity: string }
-    }
+  /** 下标 */
+  index?: number;
+  /** 结束原因 */
+  finish_reason?: string | null;
+  /** 参数未知 作用未知 */
+  content_filter_results?: {
+    hate: { filtered: boolean; severity: string };
+    self_harm: { filtered: boolean; severity: string };
+    sexual: { filtered: boolean; severity: string };
+    violence: { filtered: boolean; severity: string };
+  };
 }
 
 /**
@@ -158,35 +156,35 @@ export interface BaseResponseChoice {
  * @param parentMessageId 上次对话消息id
  */
 export interface Conversation {
-    role: Role;
-    content: string | null;
-    messageId: string;
-    parentMessageId?: string;
-    name?: string;
-    tool_calls?: Array<ToolCall>;
-    tool_call_id?: string;
-    function_call?: FunctionCall;
+  role: Role;
+  content: string | null;
+  messageId: string;
+  parentMessageId?: string;
+  name?: string;
+  tool_calls?: Array<ToolCall>;
+  tool_call_id?: string;
+  function_call?: FunctionCall;
 }
 
 /**
  * @desc 公共发送消息选项
  */
 export interface BaseSendMessageOptions {
-    parentMessageId?: string;
-    messageId?: string;
-    stream?: boolean;
-    systemMessage?: string;
-    role?: Role;
-    tool_call_id?: string;
-    name?: string;
+  parentMessageId?: string;
+  messageId?: string;
+  stream?: boolean;
+  systemMessage?: string;
+  role?: Role;
+  tool_call_id?: string;
+  name?: string;
 }
 /**
  * @desc 公共角色枚举
  */
 export enum RoleEnum {
-    System = 'system',
-    User = 'user',
-    Assistant = 'assistant',
+  System = 'system',
+  User = 'user',
+  Assistant = 'assistant',
 }
 export type Role = 'system' | 'user' | 'assistant' | 'tool' | 'function';
 
@@ -194,91 +192,90 @@ export type Role = 'system' | 'user' | 'assistant' | 'tool' | 'function';
  * @desc Function definition
  */
 export interface FunctionDef {
-    name: string;
-    description?: string;
-    parameters?: Record<string, any>;
+  name: string;
+  description?: string;
+  parameters?: Record<string, any>;
 }
 
 /**
  * @desc Tool definition
  */
 export interface Tool {
-    type: 'function';
-    function: FunctionDef;
+  type: 'function';
+  function: FunctionDef;
 }
 
 /**
  * @desc Tool call in response
  */
 export interface ToolCall {
-    id: string;
-    type: 'function';
-    function: {
-        name: string;
-        arguments: string;
-    };
+  id: string;
+  type: 'function';
+  function: {
+    name: string;
+    arguments: string;
+  };
 }
 
 export interface FunctionCall {
-    name: string;
-    arguments: string;
+  name: string;
+  arguments: string;
 }
 
-
 export interface AnswerResponse<T = any> extends globalThis.Response {
-    json(): Promise<T>;
+  json(): Promise<T>;
 }
 
 // ChatClient Types
 
-export interface ChatRequestMessage extends Omit<Conversation, 'messageId' | 'parentMessageId'> { }
+export interface ChatRequestMessage extends Omit<Conversation, 'messageId' | 'parentMessageId'> {}
 
 /**
  * @desc 请求参数
  */
 export interface ChatRequestParams extends BaseRequestParams {
-    messages: Array<ChatRequestMessage>;
+  messages: Array<ChatRequestMessage>;
 }
 
 export interface ChatResponseMessage {
-    role: Role;
-    content: string | null;
-    tool_calls?: Array<ToolCall>;
-    function_call?: FunctionCall;
+  role: Role;
+  content: string | null;
+  tool_calls?: Array<ToolCall>;
+  function_call?: FunctionCall;
 }
 
 export interface ChatResponseDelta extends ChatResponseMessage {
-    tool_calls?: Array<ToolCall>;
+  tool_calls?: Array<ToolCall>;
 }
 
 export interface ChatResponseChoice extends BaseResponseChoice {
-    message?: ChatResponseMessage;
-    delta?: ChatResponseDelta;
+  message?: ChatResponseMessage;
+  delta?: ChatResponseDelta;
 }
 
 /**
  * @desc 不走steam流接口的输出结果
  */
 export interface ChatResponse extends BaseResponse {
-    choices: Array<ChatResponseChoice>;
-    // detail?: ResponseDetail;
+  choices: Array<ChatResponseChoice>;
+  // detail?: ResponseDetail;
 }
 
 export interface ChatSendMessageOptions extends BaseSendMessageOptions {
-    onProgress?: (partialResponse: AssistantConversation) => void;
-    requestParams?: Partial<Omit<ChatRequestParams, 'messages' | 'n' | 'stream'>>;
+  onProgress?: (partialResponse: AssistantConversation) => void;
+  requestParams?: Partial<Omit<ChatRequestParams, 'messages' | 'n' | 'stream'>>;
 }
 export interface ChatClientOptions extends ClientBaseOptions {
-    requestParams?: Partial<Omit<ChatRequestParams, 'messages' | 'n' | 'stream'>>;
+  requestParams?: Partial<Omit<ChatRequestParams, 'messages' | 'n' | 'stream'>>;
 }
 
 export interface Model {
-    id: string;
-    object: string;
-    owned_by: string;
+  id: string;
+  object: string;
+  owned_by: string;
 }
 
 export interface ListModelsResponse {
-    object: string;
-    data: Array<Model>;
+  object: string;
+  data: Array<Model>;
 }
