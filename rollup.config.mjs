@@ -7,30 +7,42 @@ import del from 'rollup-plugin-delete'; //
 import commonjs from '@rollup/plugin-commonjs'; //将CommonJS模块转换为ES6, 方便rollup直接调用
 import livereload from 'rollup-plugin-livereload';
 import json from '@rollup/plugin-json';
+import { dts } from 'rollup-plugin-dts';
 
 const isProduction = process.env.NODE_ENV === 'production';
+const external = [
+  'crypto',
+  'eventsource-parser',
+  'isomorphic-fetch',
+  'js-tiktoken',
+  'js-tiktoken/lite',
+  'js-tiktoken/ranks/cl100k_base',
+  'js-tiktoken/ranks/o200k_base',
+  'marked',
+  'uuid',
+];
 
-export default {
+const jsConfig = {
   input: './src/index.ts',
   output: [
     {
       format: 'es',
       file: 'dist/index.esm.js',
-      globals:{
-        "crypto":"crypto"
-      }
+      globals: {
+        crypto: 'crypto',
+      },
     },
     {
       format: 'cjs',
       file: 'dist/index.cjs.js',
-      globals:{
-        "crypto":"crypto"
-      }
+      globals: {
+        crypto: 'crypto',
+      },
     },
   ],
   plugins: [
     del({
-      targets: ['dist'],
+      targets: ['dist', 'types'],
     }),
     nodeResolve({ preferBuiltins: true }),
     json(),
@@ -40,9 +52,8 @@ export default {
     isProduction && terser(),
     babel({
       exclude: 'node_modules/**',
-      babelHelpers: 'bundled'
+      babelHelpers: 'bundled',
     }),
-    // 热更新
     !isProduction && livereload(),
     typescript({
       exclude: 'node_modules/**',
@@ -51,15 +62,19 @@ export default {
     }),
     sourceMaps(),
   ],
-  external:[
-    "crypto",
-    "eventsource-parser",
-    "isomorphic-fetch",
-    "js-tiktoken",
-    "js-tiktoken/lite",
-    "js-tiktoken/ranks/cl100k_base",
-    "js-tiktoken/ranks/o200k_base",
-    "marked",
-    "uuid"
-  ]
+  external,
 };
+
+const dtsConfig = {
+  input: './temp/index.d.ts',
+  output: [
+    {
+      format: 'es',
+      file: 'types/index.d.ts',
+    },
+  ],
+  plugins: [dts()],
+  external,
+};
+
+export default [jsConfig, dtsConfig];

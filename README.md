@@ -1,36 +1,38 @@
 # openai-apis
 
-一个轻量级、类型安全且功能强大的 OpenAI-compatible Chat Completions SDK。支持 Node.js 和浏览器环境，内置流式响应（Streaming）、可插拔上下文管理、工具调用（Tool Calling）和 Token 计算功能。
+一个轻量、类型安全、面向 OpenAI-compatible 服务的 Chat Completions SDK，适用于 Node.js 和浏览器。
 
 [![npm version](https://img.shields.io/npm/v/openai-apis.svg)](https://www.npmjs.com/package/openai-apis)
 [![license](https://img.shields.io/npm/l/openai-apis.svg)](https://github.com/xcy960815/openai-apis/blob/main/LICENSE)
 [![CI](https://github.com/xcy960815/openai-apis/actions/workflows/ci.yml/badge.svg)](https://github.com/xcy960815/openai-apis/actions/workflows/ci.yml)
 
-## ✨ 特性
+## 特性
 
-- 🚀 **简单易用**：开箱即用，API 设计直观，统一了不同模型的调用方式。
-- 🌊 **流式响应**：完美支持 Server-Sent Events (SSE)，实时获取 AI 回复，体验丝滑。
-- 🧠 **上下文管理**：支持可插拔的会话存储，可按需开启多轮对话，而不是把状态硬编码进客户端实例。
-- 🔌 **多模型支持**：支持 OpenAI 以及兼容 OpenAI 协议的模型（如 **DeepSeek**）。
-- 🛠️ **工具调用**：支持 `tools` / `tool_choice`，并正确回传 `role: 'tool'` 的结果消息。
-- 📝 **Markdown 转 HTML**：内置 Markdown 解析器，可配置直接输出 HTML 格式。
-- 🔢 **Token 计算**：内置基于 `js-tiktoken` 的 Token 计算器，并按模型选择更合适的编码做近似估算。
-- 🌐 **多端支持**：同时支持 Node.js (14+) 和 浏览器环境。
-- 📘 **TypeScript**：提供完整的类型定义，开发体验极佳。
+- 支持 OpenAI 以及兼容 OpenAI 协议的服务
+- 支持普通响应和流式响应（SSE）
+- 支持工具调用（`tools` / `tool_choice`）
+- 显式的会话存储设计，默认无状态，按需开启多轮对话
+- 可插拔的传输层、Token 计算器、响应内容转换器
+- 内置 `js-tiktoken` Token 估算实现
+- 提供完整 TypeScript 类型定义
 
-## 📦 安装
+## 安装
 
 ```bash
 npm install openai-apis
-# 或者
+```
+
+```bash
 pnpm add openai-apis
-# 或者
+```
+
+```bash
 yarn add openai-apis
 ```
 
-## 🔐 示例环境变量
+## 示例环境变量
 
-仓库里的 Node 示例和浏览器示例共用根目录 `.env`，变量名保持一致：
+仓库里的示例默认读取根目录 `.env`：
 
 ```bash
 cp .env.example .env
@@ -43,135 +45,76 @@ OPENAI_MODEL=gpt-5-mini
 ```
 
 - `OPENAI_API_KEY`：必填
-- `OPENAI_API_BASE_URL`：推荐填写；浏览器示例和工具调用示例都会读取它
-- `OPENAI_MODEL`：可选，不填时默认使用 `gpt-5-mini`
+- `OPENAI_API_BASE_URL`：可选，支持 OpenAI-compatible 网关，可传带 `/v1` 或不带 `/v1` 的地址
+- `OPENAI_MODEL`：可选，示例默认使用 `gpt-5-mini`
 
-## 🚀 快速开始
+## 快速开始
 
-### 1. 基础对话 (OpenAI)
+### 基础调用
 
-```typescript
+```ts
 import { ChatClient } from 'openai-apis';
 
 const client = new ChatClient({
-  apiKey: 'your-openai-api-key',
-  // 也可以传 baseURL，且支持是否自带 /v1
-  // baseURL: 'https://api.openai.com',
+  apiKey: process.env.OPENAI_API_KEY!,
+  baseURL: process.env.OPENAI_API_BASE_URL,
   requestParams: {
-    model: 'gpt-5-mini',
-  }
+    model: process.env.OPENAI_MODEL || 'gpt-5-mini',
+  },
 });
 
 async function main() {
   const res = await client.sendMessage('你好，请介绍一下你自己');
-  console.log(res.content); 
+  console.log(res.content);
 }
 
 main();
 ```
 
-### 2. 使用 DeepSeek 模型
+### 流式响应
 
-本库完美支持 DeepSeek 等兼容 OpenAI 接口的模型。
-
-```typescript
-import { ChatClient } from 'openai-apis';
-
-const client = new ChatClient({
-  apiKey: 'your-deepseek-api-key',
-  apiBaseUrl: 'https://api.deepseek.com', // 设置 DeepSeek 的 API 地址
-  requestParams: {
-    model: 'deepseek-chat', // 指定模型
-  }
+```ts
+const res = await client.sendMessage('写一首关于春天的短诗', {
+  onProgress(partial) {
+    console.log(partial.content);
+  },
 });
 
-async function main() {
-  const res = await client.sendMessage('DeepSeek 是什么？');
-  console.log(res.content);
-}
+console.log(res.content);
 ```
 
-### 3. 流式响应 (Streaming)
+### 多轮对话
 
-实时获取输出，体验更流畅。
+SDK 默认不保存历史消息；需要多轮对话时，显式传入会话存储：
 
-```typescript
-client.sendMessage('写一首关于春天的诗', {
-  onProgress: (partialResponse) => {
-    // partialResponse.content 包含当前累积的回复内容
-    console.log('Stream:', partialResponse.content);
-  }
-}).then((finalResponse) => {
-  console.log('Done:', finalResponse.content);
-});
-```
-
-### 4. 多轮对话 (上下文保持)
-
-通过传递 `parentMessageId` 来保持对话上下文。为了让 SDK 记住历史消息，需要显式提供一个会话存储：
-
-```typescript
+```ts
 import { ChatClient, InMemoryConversationStore } from 'openai-apis';
 
 const client = new ChatClient({
-  apiKey: 'your-openai-api-key',
+  apiKey: process.env.OPENAI_API_KEY!,
   conversationStore: new InMemoryConversationStore(),
   requestParams: {
     model: 'gpt-5-mini',
-  }
+  },
 });
 
 async function chat() {
-  // 第一轮
   const res1 = await client.sendMessage('我叫小明');
-  console.log('AI:', res1.content);
-
-  // 第二轮 (传入上一条消息的 ID)
   const res2 = await client.sendMessage('我叫什么名字？', {
-    parentMessageId: res1.messageId
+    parentMessageId: res1.messageId,
   });
-  console.log('AI:', res2.content); // AI 会回答：你叫小明
+
+  console.log(res2.content);
 }
 ```
 
-## ⚙️ 配置参数
+### Tool Calling
 
-### 初始化参数 (ChatClientOptions)
-
-| 参数 | 类型 | 默认值 | 说明 |
-| --- | --- | --- | --- |
-| `apiKey` | `string` | - | **必填**。API Key |
-| `apiBaseUrl` | `string` | `https://api.openai.com` | API 基础地址，支持 DeepSeek 等第三方服务 |
-| `baseURL` | `string` | - | `apiBaseUrl` 的别名，便于与官方 SDK 配置保持一致 |
-| `requestParams` | `object` | `{ model: 'gpt-5-mini' }` | 默认请求参数，可设置 `model`, `temperature`, `reasoning_effort`, `verbosity`, `response_format`, `parallel_tool_calls` 等 |
-| `debug` | `boolean` | `false` | 是否开启调试日志 |
-| `markdown2Html` | `boolean` | `false` | 是否将 Markdown 转换为 HTML |
-| `transformResponseContent` | `function` | - | 自定义响应内容转换器 |
-| `conversationStore` | `ConversationStore` | - | 显式提供会话存储；不传时客户端默认无状态 |
-| `withContent` | `boolean` | `false` | 兼容旧用法，传 `true` 时自动使用默认内存存储 |
-| `tokenCounter` | `TokenCounter` | - | 自定义 Token 计数实现 |
-| `transport` | `OpenAITransport` | - | 自定义 OpenAI-compatible 传输实现 |
-| `systemMessage` | `string` | - | 系统预设角色/提示词；不传则不会自动注入默认系统消息 |
-| `maxResponseTokens` | `number` | `1000` | 回复最大 Token 数 |
-| `milliseconds` | `number` | `60000` | 请求超时时间 (毫秒) |
-
-### 请求参数 (sendMessage 第二个参数)
-
-| 参数 | 类型 | 说明 |
-| --- | --- | --- |
-| `parentMessageId` | `string` | 上一条消息的 ID，用于关联上下文 |
-| `onProgress` | `function` | 流式响应回调函数 |
-| `systemMessage` | `string` | 覆盖当前对话的系统提示词 |
-| `role` | `string` | 当前发送消息的角色，支持 `user` / `assistant` / `system` / `tool` / `function` |
-| `requestParams` | `object` | 覆盖初始化的请求参数 (如临时切换模型) |
-
-## 🛠️ Tool Calling 示例
-
-```typescript
+```ts
 import { ChatClient, InMemoryConversationStore } from 'openai-apis';
 
 const client = new ChatClient({
-  apiKey: 'your-openai-api-key',
+  apiKey: process.env.OPENAI_API_KEY!,
   conversationStore: new InMemoryConversationStore(),
 });
 
@@ -187,20 +130,23 @@ const res1 = await client.sendMessage('上海天气怎么样？', {
           parameters: {
             type: 'object',
             properties: {
-              location: { type: 'string' }
+              location: { type: 'string' },
             },
-            required: ['location']
-          }
-        }
-      }
+            required: ['location'],
+          },
+        },
+      },
     ],
-    tool_choice: 'auto'
-  }
+    tool_choice: 'auto',
+  },
 });
 
 if (res1.tool_calls?.length) {
   const toolCall = res1.tool_calls[0];
-  const toolResult = JSON.stringify({ location: 'Shanghai', temperature: 22 });
+  const toolResult = JSON.stringify({
+    location: 'Shanghai',
+    temperature: 22,
+  });
 
   const res2 = await client.sendMessage(toolResult, {
     parentMessageId: res1.messageId,
@@ -213,21 +159,157 @@ if (res1.tool_calls?.length) {
 }
 ```
 
-## 📌 说明
+## 核心架构
 
-- 本库聚焦 OpenAI-compatible 的 Chat Completions 接口，适合同时对接 OpenAI 和其他兼容服务。
-- 如果你只面向 OpenAI 官方并准备采用更新的 Responses API，优先考虑官方 SDK；本库更偏向轻量、兼容、易嵌入的封装方式。
+当前源码按职责拆分成几块清晰的运行时组件：
 
-## 🤝 贡献
+| 模块 | 作用 |
+| --- | --- |
+| `ChatClient` | 面向业务的主入口，封装 Chat Completions 请求与响应 |
+| `ClientCore` | 公共运行时能力，负责超时控制、会话拼装、上下文读取、内容转换 |
+| `FetchOpenAITransport` | 默认传输层，负责普通 HTTP 请求和流式 SSE 消费 |
+| `InMemoryConversationStore` | 默认内存会话存储实现 |
+| `JsTiktokenTokenCounter` | 基于 `js-tiktoken` 的 Token 估算实现 |
+| `sdk-types.ts` | 对外类型定义汇总 |
 
-欢迎提交 Issue 和 Pull Request！
+当前 `src/` 目录命名和职责是一一对应的：
+
+```text
+src/
+  chat-client.ts
+  client-core.ts
+  fetch-openai-transport.ts
+  in-memory-conversation-store.ts
+  js-tiktoken-token-counter.ts
+  sdk-types.ts
+  chatgpt-error.ts
+  content-transformer.ts
+  index.ts
+```
+
+兼容性方面保留了两个旧名称导出：
+
+- `ClientBase` 仍然可用，作为 `ClientCore` 的兼容别名
+- `Gpt3TokenizerTokenCounter` 仍然可用，作为 `JsTiktokenTokenCounter` 的兼容别名
+
+## 配置项
+
+### `ChatClientOptions`
+
+| 参数 | 类型 | 默认值 | 说明 |
+| --- | --- | --- | --- |
+| `apiKey` | `string` | - | 必填，API Key |
+| `apiBaseUrl` | `string` | `https://api.openai.com` | OpenAI-compatible 服务地址，支持传带 `/v1` 或不带 `/v1` 的地址 |
+| `baseURL` | `string` | - | `apiBaseUrl` 的别名 |
+| `requestParams` | `object` | `{ model: 'gpt-5-mini' }` | 默认请求参数 |
+| `conversationStore` | `ConversationStore` \| `false` | `false` | 会话存储，不传则默认无状态 |
+| `withContent` | `boolean` | `false` | 兼容旧用法，传 `true` 时启用默认内存会话存储 |
+| `tokenCounter` | `TokenCounter` | - | 自定义 Token 计算实现 |
+| `transport` | `OpenAITransport` | - | 自定义传输实现 |
+| `systemMessage` | `string` | - | 默认系统提示词 |
+| `markdown2Html` | `boolean` | `false` | 兼容旧用法，将 Markdown 转成 HTML |
+| `transformResponseContent` | `(text) => string` | - | 自定义响应内容转换 |
+| `maxModelTokens` | `number` | `4096` | 用于上下文裁剪的模型总 Token 上限 |
+| `maxResponseTokens` | `number` | `1000` | 单次回复最大 Token |
+| `milliseconds` | `number` | `60000` | 请求超时时间 |
+| `debug` | `boolean` | `false` | 是否输出调试日志 |
+
+### `sendMessage(question, options)`
+
+| 参数 | 类型 | 说明 |
+| --- | --- | --- |
+| `parentMessageId` | `string` | 指定上一条消息，启用上下文串联 |
+| `onProgress` | `(partial) => void` | 流式输出回调 |
+| `stream` | `boolean` | 显式控制是否使用流式 |
+| `systemMessage` | `string` | 覆盖本次请求的系统提示词 |
+| `role` | `Role` | 本次发送消息角色，支持 `user` / `assistant` / `system` / `tool` / `function` |
+| `tool_call_id` | `string` | 工具消息对应的工具调用 ID |
+| `name` | `string` | 工具名或函数名 |
+| `requestParams` | `object` | 覆盖初始化时的请求参数 |
+
+## 自定义扩展
+
+### 自定义传输层
+
+如果你有自己的请求适配器，可以实现 `OpenAITransport`：
+
+```ts
+import type { FetchRequestInit, OpenAITransport } from 'openai-apis';
+
+class CustomTransport implements OpenAITransport {
+  async request(path: string, requestInit: FetchRequestInit, abortSignal: AbortSignal) {
+    return fetch(`https://your-proxy.example.com${path}`, {
+      ...requestInit,
+      signal: abortSignal,
+    });
+  }
+}
+```
+
+### 自定义 Token 计算器
+
+```ts
+import type { TokenCounter } from 'openai-apis';
+
+class CustomTokenCounter implements TokenCounter {
+  async count(text: string) {
+    return text.length;
+  }
+}
+```
+
+## 本地开发
+
+推荐 Node.js 18+。
+
+```bash
+pnpm install
+pnpm build
+pnpm test --runInBand
+pnpm lint
+```
+
+常用示例命令：
+
+```bash
+pnpm example:node
+pnpm example:node:cli
+pnpm example:node:fc
+pnpm dev
+```
+
+## 构建产物
+
+发布产物包括三部分：
+
+- `dist/index.esm.js`
+- `dist/index.cjs.js`
+- `types/index.d.ts`
+
+当前类型构建链为：
+
+1. TypeScript 先把声明文件输出到临时目录 `temp/`
+2. Rollup 使用 `rollup-plugin-dts` 将入口声明打包为 `types/index.d.ts`
+3. 构建结束后清理 `temp/`
+
+这套方式比单独维护 `api-extractor.json` 更轻，和当前 Rollup 构建链也更一致。
+
+## 适用边界
+
+- 这个库聚焦 OpenAI-compatible 的 Chat Completions 接口
+- 如果你的项目只面向 OpenAI 官方、并准备全面切到 Responses API，优先考虑官方 SDK
+- 如果你需要一个更轻、可插拔、方便接第三方兼容网关的封装，这个库更合适
+
+## 贡献
+
+欢迎提交 Issue 和 Pull Request。
 
 1. Fork 本仓库
-2. 创建特性分支 (`git checkout -b feature/AmazingFeature`)
-3. 提交更改 (`git commit -m 'Add some AmazingFeature'`)
-4. 推送到分支 (`git push origin feature/AmazingFeature`)
-5. 提交 Pull Request
+2. 创建分支：`git checkout -b feature/your-feature`
+3. 提交修改：`git commit -m "feat: your feature"`
+4. 推送分支：`git push origin feature/your-feature`
+5. 发起 Pull Request
 
-## 📄 许可证
+## License
 
 MIT
