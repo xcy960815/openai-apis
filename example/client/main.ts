@@ -284,6 +284,14 @@ async function fetchModels(showSuccessMessage = true) {
 
         const res = await tempClient.getModels();
         if (res) {
+            const contentType = res.headers.get('content-type') || '';
+            if (!contentType.toLowerCase().includes('application/json')) {
+                const bodyPreview = (await res.text()).slice(0, 200);
+                throw new Error(
+                    `Model list endpoint returned a non-JSON response (${contentType || 'unknown content-type'}): ${bodyPreview}`,
+                );
+            }
+
             const data = await res.json();
             if (data && Array.isArray(data.data)) {
                 const fetchedModelNames = data.data

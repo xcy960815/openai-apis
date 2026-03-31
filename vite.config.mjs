@@ -13,6 +13,7 @@ function createProxyRequestHeaders(headers) {
       value == null ||
       key === 'host' ||
       key === 'content-length' ||
+      key === 'accept-encoding' ||
       key === 'origin' ||
       key === 'referer'
     ) {
