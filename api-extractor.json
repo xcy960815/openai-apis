@@ -25,6 +25,9 @@
       }
     },
     "extractorMessageReporting": {
+      "ae-forgotten-export": {
+        "logLevel": "none"
+      },
       "default": {
         "logLevel": "none"
       }

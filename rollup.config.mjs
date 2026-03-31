@@ -51,5 +51,15 @@ export default {
     }),
     sourceMaps(),
   ],
-  external:["crypto", "eventsource-parser", "gpt3-tokenizer", "isomorphic-fetch", "marked", "uuid"]
+  external:[
+    "crypto",
+    "eventsource-parser",
+    "isomorphic-fetch",
+    "js-tiktoken",
+    "js-tiktoken/lite",
+    "js-tiktoken/ranks/cl100k_base",
+    "js-tiktoken/ranks/o200k_base",
+    "marked",
+    "uuid"
+  ]
 };

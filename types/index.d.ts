@@ -1,5 +1,3 @@
-import Gpt3Tokenizer from 'gpt3-tokenizer';
-
 export declare interface AnswerResponse<T = any> extends globalThis.Response {
     json(): Promise<T>;
 }
@@ -122,19 +120,18 @@ export declare interface BaseSendMessageOptions {
     name?: string;
 }
 
-export declare type BuildConversationReturns<R extends Role | "gpt-assistant"> = R extends 'user' ? Conversation : R extends 'assistant' ? Conversation : R extends 'gpt-assistant' ? AssistantConversation : R extends 'system' ? Conversation : R extends 'tool' ? Conversation : R extends 'function' ? Conversation : undefined;
+export declare type BuildConversationReturns<R extends Role | 'gpt-assistant'> = R extends 'user' ? Conversation : R extends 'assistant' ? Conversation : R extends 'gpt-assistant' ? AssistantConversation : R extends 'system' ? Conversation : R extends 'tool' ? Conversation : R extends 'function' ? Conversation : undefined;
 
-export declare class ChatClient extends ClientBase {
+export declare class ChatClient extends ClientCore {
     /**
      * @desc 请求参数
      */
     private requestParams;
     constructor(options: ChatClientOptions);
     /**
-     * @desc completions请求地址
-     * @returns {string}
+     * @desc completions 请求路径
      */
-    protected get completionsUrl(): string;
+    protected get completionsPath(): string;
     /**
      * @description 构建fetch公共请求参数
      * @param {string} question
@@ -170,14 +167,18 @@ export declare namespace ChatClient {
     export type ResponseDelta = ChatResponseDelta;
     export type ResponseChoice = ChatResponseChoice;
     export type Response = ChatResponse;
-    export type AssistantConversation = AssistantConversation;
+    export type AssistantConversation = ChatClientAssistantConversationAlias;
     export type SendMessageOptions = ChatSendMessageOptions;
-    export type ChatClientOptions = ChatClientOptions;
+    export type ChatClientOptions = ChatClientOptionsAlias;
 }
+
+declare type ChatClientAssistantConversationAlias = AssistantConversation;
 
 export declare interface ChatClientOptions extends ClientBaseOptions {
     requestParams?: Partial<Omit<ChatRequestParams, 'messages' | 'n' | 'stream'>>;
 }
+
+declare type ChatClientOptionsAlias = ChatClientOptions;
 
 /**
  * @desc ChatGPT 错误类
@@ -239,68 +240,95 @@ export declare type ClearablePromiseOptions = {
 };
 
 /**
- * @description 基础类 有一些公共方法
+ * @desc 模型公共参数
+ */
+export declare interface ClientBaseOptions {
+    apiKey: string;
+    /** 请求连接，支持 `https://api.openai.com` 和 `https://api.openai.com/v1` */
+    apiBaseUrl?: string;
+    /** `apiBaseUrl` 的别名，便于与官方 SDK 配置风格保持一致 */
+    baseURL?: string;
+    /** 组织 */
+    organization?: string;
+    /** 是否开启debug模式 */
+    debug?: boolean;
+    /** @defaultValue 4096 **/
+    maxModelTokens?: number;
+    /** @defaultValue 1000 **/
+    maxResponseTokens?: number;
+    /** 是否启用默认的内存会话存储；推荐直接传 `conversationStore` */
+    withContent?: boolean;
+    /** 显式提供会话存储，默认不保存历史 */
+    conversationStore?: ConversationStore | false;
+    /** 自定义 Token 计数器 */
+    tokenCounter?: TokenCounter;
+    /** 自定义 OpenAI-compatible 传输实现 */
+    transport?: OpenAITransport;
+    /** 系统消息 */
+    systemMessage?: string;
+    /** 超时时间 */
+    milliseconds?: number;
+    /** 是否将 markdown 转换为 HTML，兼容旧用法 */
+    markdown2Html?: boolean;
+    /** 自定义响应内容转换器 */
+    transformResponseContent?: ContentTransformer;
+}
+
+/**
+ * @description 客户端核心运行时，负责组合 transport、store、token counter 等公共能力
  *
  */
-export declare class ClientBase {
-    /** gpt 对话key */
-    protected apiKey: string;
-    /** gpt 请求域名 */
-    protected apiBaseUrl: string;
-    /** gpt 组织 */
-    protected organization?: string;
+declare class ClientCore {
     /** 是否开启debug */
     protected debug: boolean;
-    /** 是否携带上下文 */
-    protected withContent: boolean;
-    /** 消息仓库 */
-    protected messageStore: Map<string, Conversation>;
+    /** 会话存储 */
+    protected conversationStore?: ConversationStore;
     /** 最大请求token */
     protected maxModelTokens: number;
     /** 最多返回token */
     protected maxResponseTokens: number;
     /** 系统角色 */
-    protected systemMessage: string;
+    protected systemMessage?: string;
     /** 取消fetch请求控制器 */
     protected abortController: AbortController;
-    /** 用于计算token */
-    protected gpt3Tokenizer: Gpt3Tokenizer;
     /** 超时时间 */
     protected milliseconds: number;
-    /** 是否将markdown语法转换成html */
-    protected markdown2Html: boolean;
-    constructor(options: ClientBaseOptions);
+    /** OpenAI-compatible 传输实现 */
+    protected transport: OpenAITransport;
+    /** 内容转换器 */
+    private readonly contentTransformer;
+    /** Token 计数器 */
+    private readonly tokenCounter;
+    constructor(options: ClientCoreOptions);
     /**
-     * @desc 解析markdown
+     * @desc 转换响应内容
      * @param {string} text
      * @returns {string}
      */
-    protected parseMarkdown(text: string): string;
-    /**
-     * @desc 统一拼接 API 地址，兼容是否已包含 `/v1`
-     */
-    protected buildApiUrl(path: string): string;
-    /**
-     * @desc models 请求地址
-     * @returns {string}
-     */
-    protected get modelUrl(): string;
+    protected transformContent(text: string): string;
     /**
      * @desc 生成随机id
      * @returns {string}
      */
     protected get uuid(): string;
     /**
-     * @desc 请求头
-     * @returns {HeadersInit}
+     * @desc 发起 OpenAI-compatible 请求
      */
-    protected get headers(): HeadersInit;
+    protected request<R extends object>(path: string, requestInit: FetchRequestInit): Promise<AnswerResponse<R> | void>;
     /**
      * @desc 获取token数量
      * @param {string} text
      * @returns {Promise<number>}
      */
-    protected getTokenCount(_text: string): Promise<number>;
+    protected getTokenCount(_text: string, options?: TokenCountOptions): Promise<number>;
+    /**
+     * @desc 是否启用了会话存储
+     */
+    protected hasConversationStore(): boolean;
+    /**
+     * @desc 获取会话存储
+     */
+    protected requireConversationStore(): ConversationStore;
     /**
      * @description 构建会话消息
      * @param {"user" | "gpt-assistant"} role
@@ -308,7 +336,7 @@ export declare class ClientBase {
      * @param {BaseSendMessageOptions} option
      * @returns {Conversation}
      */
-    protected buildConversation<R extends Role | "gpt-assistant">(role: R, content: string, option: BaseSendMessageOptions): BuildConversationReturns<R>;
+    protected buildConversation<R extends Role | 'gpt-assistant'>(role: R, content: string, option: BaseSendMessageOptions): BuildConversationReturns<R>;
     /**
      * @desc 获取对话
      * @param {string} id
@@ -338,28 +366,6 @@ export declare class ClientBase {
      */
     protected serializeConversationForTokenCount(message: Partial<Conversation>): string;
     /**
-     * 这个方法的作用是将一个 ReadableStream 对象转换成一个异步迭代器 AsyncIterable，
-     * 该迭代器会在每次迭代中返回一个 Uint8Array 类型的数据块。具体来说，该方法会获取一个 ReadableStream 对象的读取器（reader），
-     * 然后在一个无限循环中等待读取器返回数据。每次读取器返回数据时，该方法都会返回一个包含数据的 Uint8Array 对象。
-     * 当读取器返回一个 done 属性为 true 的对象时，该方法就会结束迭代。最后，该方法会释放读取器的锁。
-     * @param {ReadableStream<Uint8Array>} stream
-     * @returns {AsyncIterable<Uint8Array>}
-     */
-    private streamAsyncIterable;
-    /**
-     * @desc 向OpenAI发送请求
-     * @param {string} url
-     * @param {FetchSSEOptions} options
-     * @returns {Promise<GptResponse<R> | void>}
-     */
-    protected fetchSSE<R extends Object>(url: string, requestInit: FetchRequestInit): Promise<AnswerResponse<R> | void>;
-    /**
-     * @description 创建parser
-     * @param {(p:string)=>void} onMessage
-     * @returns {EventSourceParser}
-     */
-    private createParser;
-    /**
      * @description 清空promise
      */
     protected clearablePromise<V = any>(inputPromise: PromiseLike<V>, options: ClearablePromiseOptions): Promise<V>;
@@ -371,33 +377,12 @@ export declare class ClientBase {
     cancelConversation(reson?: string): void;
     getModels(): Promise<void | AnswerResponse<ListModelsResponse>>;
 }
+export { ClientCore as ClientBase }
+export { ClientCore }
 
-/**
- * @desc 模型公共参数
- */
-export declare interface ClientBaseOptions {
-    apiKey: string;
-    /** 请求连接，支持 `https://api.openai.com` 和 `https://api.openai.com/v1` */
-    apiBaseUrl?: string;
-    /** `apiBaseUrl` 的别名，便于与官方 SDK 配置风格保持一致 */
-    baseURL?: string;
-    /** 组织 */
-    organization?: string;
-    /** 是否开启debug模式 */
-    debug?: boolean;
-    /** @defaultValue 4096 **/
-    maxModelTokens?: number;
-    /** @defaultValue 1000 **/
-    maxResponseTokens?: number;
-    /** 是否携带上下文 */
-    withContent?: boolean;
-    /** 系统消息 */
-    systemMessage?: string;
-    /** 超时时间 */
-    milliseconds?: number;
-    /** 是否将markdown语法转换成html */
-    markdown2Html?: boolean;
-}
+export declare type ClientCoreOptions = ClientBaseOptions;
+
+export declare type ContentTransformer = (text: string) => string;
 
 /**
  * @description 系统、用户、助手（gpt）会话消息
@@ -415,6 +400,24 @@ export declare interface Conversation {
     tool_calls?: Array<ToolCall>;
     tool_call_id?: string;
     function_call?: FunctionCall;
+}
+
+export declare interface ConversationStore {
+    get(messageId: string): Promise<Conversation | undefined>;
+    set(message: Conversation): Promise<void>;
+    clear(): Promise<void>;
+}
+
+export declare class FetchOpenAITransport implements OpenAITransport {
+    private readonly apiKey;
+    private readonly apiBaseUrl;
+    private readonly organization?;
+    constructor(options: OpenAITransportOptions);
+    request<R extends object>(path: string, requestInit: FetchRequestInit, abortSignal: AbortSignal): Promise<AnswerResponse<R> | void>;
+    private buildApiUrl;
+    private buildHeaders;
+    private createParser;
+    private streamAsyncIterable;
 }
 
 /**
@@ -438,6 +441,26 @@ export declare interface FunctionDef {
     parameters?: Record<string, any>;
 }
 
+/**
+ * @deprecated Use `JsTiktokenTokenCounter` instead.
+ */
+export declare class Gpt3TokenizerTokenCounter extends JsTiktokenTokenCounter {
+}
+
+export declare class InMemoryConversationStore implements ConversationStore {
+    private readonly messageStore;
+    get(messageId: string): Promise<Conversation | undefined>;
+    set(message: Conversation): Promise<void>;
+    clear(): Promise<void>;
+}
+
+export declare class JsTiktokenTokenCounter implements TokenCounter {
+    private readonly cl100kTokenizer;
+    private readonly o200kTokenizer;
+    count(text: string, options?: TokenCountOptions): Promise<number>;
+    private getTokenizer;
+}
+
 export declare interface ListModelsResponse {
     object: string;
     data: Array<Model>;
@@ -447,6 +470,20 @@ export declare interface Model {
     id: string;
     object: string;
     owned_by: string;
+}
+
+export declare interface OpenAITransport {
+    request<R extends object>(path: string, requestInit: FetchRequestInit, abortSignal: AbortSignal): Promise<AnswerResponse<R> | void>;
+}
+
+export declare interface OpenAITransportOptions {
+    apiKey: string;
+    /** 请求连接，支持 `https://api.openai.com` 和 `https://api.openai.com/v1` */
+    apiBaseUrl?: string;
+    /** `apiBaseUrl` 的别名，便于与官方 SDK 配置风格保持一致 */
+    baseURL?: string;
+    /** 组织 */
+    organization?: string;
 }
 
 /**
@@ -467,6 +504,14 @@ export declare enum RoleEnum {
     System = "system",
     User = "user",
     Assistant = "assistant"
+}
+
+export declare interface TokenCounter {
+    count(text: string, options?: TokenCountOptions): Promise<number>;
+}
+
+export declare interface TokenCountOptions {
+    model?: string;
 }
 
 /**

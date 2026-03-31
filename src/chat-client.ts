@@ -8,11 +8,15 @@ import {
   ChatRequestMessage,
   Conversation,
   ToolCall,
-} from './types';
-import { ClientBase } from './client-base';
+} from './sdk-types';
+import { ClientCore } from './client-core';
+
+type ChatClientAssistantConversationAlias = import('./sdk-types').AssistantConversation;
+type ChatClientOptionsAlias = import('./sdk-types').ChatClientOptions;
+
 const MODEL = 'gpt-5-mini';
 
-export class ChatClient extends ClientBase {
+export class ChatClient extends ClientCore {
   /**
    * @desc 请求参数
    */
@@ -28,11 +32,10 @@ export class ChatClient extends ClientBase {
   }
 
   /**
-   * @desc completions请求地址
-   * @returns {string}
+   * @desc completions 请求路径
    */
-  protected get completionsUrl(): string {
-    return this.buildApiUrl('/chat/completions');
+  protected get completionsPath(): string {
+    return '/chat/completions';
   }
 
   /**
@@ -46,20 +49,25 @@ export class ChatClient extends ClientBase {
     options: ChatSendMessageOptions = {},
   ): Promise<FetchRequestInit> {
     const { onProgress, stream = onProgress ? true : false, requestParams } = options;
-    // 获取用户和gpt历史对话记录
-    const { messages, maxTokens } = await this.getConversationHistory(currentMessage, options);
-    const body = {
+    const mergedRequestParams = {
       ...this.requestParams,
       ...requestParams,
+    };
+    // 获取用户和gpt历史对话记录
+    const { messages, maxTokens } = await this.getConversationHistory(
+      currentMessage,
+      options,
+      mergedRequestParams.model,
+    );
+    const body = {
+      ...mergedRequestParams,
       messages,
       stream,
       max_tokens: maxTokens,
     };
     const requestInit: FetchRequestInit = {
       method: 'POST',
-      headers: this.headers,
       body: JSON.stringify(body),
-      signal: this.abortController.signal,
     };
     return requestInit;
   }
@@ -110,7 +118,7 @@ export class ChatClient extends ClientBase {
               if (delta?.content) {
                 rawContent += delta.content;
                 rawAssistantContent = rawContent;
-                assistantMessage.content = this.parseMarkdown(rawContent);
+                assistantMessage.content = this.transformContent(rawContent);
               }
               if (delta?.tool_calls) {
                 assistantMessage.tool_calls = this.mergeToolCalls(
@@ -125,10 +133,10 @@ export class ChatClient extends ClientBase {
               onProgress?.(assistantMessage);
             }
           };
-          await this.fetchSSE<ChatResponse>(this.completionsUrl, requestInit).catch(reject);
+          await this.request<ChatResponse>(this.completionsPath, requestInit).catch(reject);
         } else {
           // 发送数据请求
-          const response = await this.fetchSSE<ChatResponse>(this.completionsUrl, requestInit);
+          const response = await this.request<ChatResponse>(this.completionsPath, requestInit);
           const data = await response?.json();
           if (data?.id) {
             assistantMessage.messageId = data.id;
@@ -137,7 +145,7 @@ export class ChatClient extends ClientBase {
             const message = data.choices[0].message;
             const content = message?.content ?? '';
             rawAssistantContent = message?.content ?? null;
-            assistantMessage.content = this.parseMarkdown(content);
+            assistantMessage.content = this.transformContent(content);
             assistantMessage.role = message?.role || 'assistant';
             if (message?.tool_calls) {
               assistantMessage.tool_calls = message.tool_calls;
@@ -160,7 +168,6 @@ export class ChatClient extends ClientBase {
       };
 
       return this.upsertConversation(historyConversation).then(() => {
-        Conversation.parentMessageId = Conversation.messageId;
         return Conversation;
       });
     });
@@ -245,6 +252,7 @@ export class ChatClient extends ClientBase {
   private async getConversationHistory(
     currentMessage: Conversation,
     options: ChatSendMessageOptions = {},
+    model = this.requestParams.model,
   ): Promise<{ messages: Array<ChatRequestMessage>; maxTokens: number }> {
     const { systemMessage } = options;
     const maxTokenCount = this.maxModelTokens - this.maxResponseTokens;
@@ -253,20 +261,26 @@ export class ChatClient extends ClientBase {
 
     // 当前系统和用户消息
     const messages: Array<ChatRequestMessage> = [];
-    if (currentMessage.role !== 'system') {
+    const resolvedSystemMessage = systemMessage ?? this.systemMessage;
+    if (currentMessage.role !== 'system' && resolvedSystemMessage) {
       messages.push({
         role: 'system',
-        content: systemMessage || this.systemMessage,
+        content: resolvedSystemMessage,
       });
     }
     messages.push(this.toChatRequestMessage(currentMessage));
 
     let tokenCount = 0;
     for (const message of messages) {
-      tokenCount += await this.getTokenCount(this.serializeConversationForTokenCount(message));
+      tokenCount += await this.getTokenCount(this.serializeConversationForTokenCount(message), {
+        model,
+      });
     }
 
-    while (true && this.withContent) {
+    const conversationStore = parentMessageId ? this.requireConversationStore() : undefined;
+    const historyInsertIndex = messages[0]?.role === 'system' ? 1 : 0;
+
+    while (true) {
       // 如果基础 Token 已经超过限制，直接跳出（虽然理论上不应该发生，除非 system/user 极其长）
       if (tokenCount > maxTokenCount) {
         break;
@@ -276,7 +290,11 @@ export class ChatClient extends ClientBase {
         break;
       }
 
-      const parentMessage = await this.getConversation(parentMessageId);
+      if (!conversationStore) {
+        break;
+      }
+
+      const parentMessage = await conversationStore.get(parentMessageId);
 
       if (!parentMessage) {
         break;
@@ -306,6 +324,7 @@ export class ChatClient extends ClientBase {
       // 计算当前历史消息的 Token
       const historyTokenCount = await this.getTokenCount(
         this.serializeConversationForTokenCount(historyConversation),
+        { model },
       );
 
       // 如果加上这条历史消息会超出限制，则停止添加
@@ -315,7 +334,7 @@ export class ChatClient extends ClientBase {
 
       // 累加 Token 并插入消息
       tokenCount += historyTokenCount;
-      messages.splice(1, 0, historyConversation);
+      messages.splice(historyInsertIndex, 0, historyConversation);
 
       // 上次对话id
       parentMessageId = parentMessage.parentMessageId;
@@ -334,13 +353,13 @@ export class ChatClient extends ClientBase {
  * @desc gpt 模型模块
  */
 export namespace ChatClient {
-  export type RequestMessage = import('./types').ChatRequestMessage;
-  export type RequestParams = import('./types').ChatRequestParams;
-  export type ResponseMessage = import('./types').ChatResponseMessage;
-  export type ResponseDelta = import('./types').ChatResponseDelta;
-  export type ResponseChoice = import('./types').ChatResponseChoice;
-  export type Response = import('./types').ChatResponse;
-  export type AssistantConversation = import('./types').AssistantConversation;
-  export type SendMessageOptions = import('./types').ChatSendMessageOptions;
-  export type ChatClientOptions = import('./types').ChatClientOptions;
+  export type RequestMessage = import('./sdk-types').ChatRequestMessage;
+  export type RequestParams = import('./sdk-types').ChatRequestParams;
+  export type ResponseMessage = import('./sdk-types').ChatResponseMessage;
+  export type ResponseDelta = import('./sdk-types').ChatResponseDelta;
+  export type ResponseChoice = import('./sdk-types').ChatResponseChoice;
+  export type Response = import('./sdk-types').ChatResponse;
+  export type AssistantConversation = ChatClientAssistantConversationAlias;
+  export type SendMessageOptions = import('./sdk-types').ChatSendMessageOptions;
+  export type ChatClientOptions = ChatClientOptionsAlias;
 }

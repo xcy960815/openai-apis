@@ -1,4 +1,4 @@
-import { ChatClient } from '../../src/index';
+import { ChatClient, InMemoryConversationStore } from '../../src/index';
 
 // --- State ---
 const config = {
@@ -10,7 +10,6 @@ const config = {
     maxResponseTokens: 1000,
     markdown2Html: false,
 };
-console.log("config",config);
 
 const OPENAI_DEV_PROXY_PREFIX = '/api/openai';
 const MINIMAX_PORTAL_HOSTNAME = 'platform.minimaxi.com';
@@ -205,7 +204,7 @@ function initClient() {
     chatClient = new ChatClient({
         apiKey: config.apiKey,
         apiBaseUrl: resolveApiBaseUrl(config.apiBaseUrl),
-        withContent: true,
+        conversationStore: new InMemoryConversationStore(),
         milliseconds: 60000,
         systemMessage: config.systemMessage,
         maxResponseTokens: config.maxResponseTokens,
@@ -279,7 +278,6 @@ async function fetchModels(showSuccessMessage = true) {
         const tempClient = new ChatClient({
             apiKey: apiKeyInput.value,
             apiBaseUrl: resolveApiBaseUrl(apiBaseUrl),
-            withContent: true,
             milliseconds: 60000,
             requestParams: { model: 'gpt-5-mini' } // dummy
         });

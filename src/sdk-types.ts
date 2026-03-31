@@ -14,6 +14,40 @@ export interface ChatgptErrorOption {
 export interface FetchRequestInit extends RequestInit {
   onMessage?: (message: string) => void;
 }
+
+export type ContentTransformer = (text: string) => string;
+
+export interface ConversationStore {
+  get(messageId: string): Promise<Conversation | undefined>;
+  set(message: Conversation): Promise<void>;
+  clear(): Promise<void>;
+}
+
+export interface TokenCounter {
+  count(text: string, options?: TokenCountOptions): Promise<number>;
+}
+
+export interface TokenCountOptions {
+  model?: string;
+}
+
+export interface OpenAITransport {
+  request<R extends object>(
+    path: string,
+    requestInit: FetchRequestInit,
+    abortSignal: AbortSignal,
+  ): Promise<AnswerResponse<R> | void>;
+}
+
+export interface OpenAITransportOptions {
+  apiKey: string;
+  /** 请求连接，支持 `https://api.openai.com` 和 `https://api.openai.com/v1` */
+  apiBaseUrl?: string;
+  /** `apiBaseUrl` 的别名，便于与官方 SDK 配置风格保持一致 */
+  baseURL?: string;
+  /** 组织 */
+  organization?: string;
+}
 /**
  * @desc 模型公共参数
  */
@@ -31,15 +65,25 @@ export interface ClientBaseOptions {
   maxModelTokens?: number;
   /** @defaultValue 1000 **/
   maxResponseTokens?: number;
-  /** 是否携带上下文 */
+  /** 是否启用默认的内存会话存储；推荐直接传 `conversationStore` */
   withContent?: boolean;
+  /** 显式提供会话存储，默认不保存历史 */
+  conversationStore?: ConversationStore | false;
+  /** 自定义 Token 计数器 */
+  tokenCounter?: TokenCounter;
+  /** 自定义 OpenAI-compatible 传输实现 */
+  transport?: OpenAITransport;
   /** 系统消息 */
   systemMessage?: string;
   /** 超时时间 */
   milliseconds?: number;
-  /** 是否将markdown语法转换成html */
+  /** 是否将 markdown 转换为 HTML，兼容旧用法 */
   markdown2Html?: boolean;
+  /** 自定义响应内容转换器 */
+  transformResponseContent?: ContentTransformer;
 }
+
+export type ClientCoreOptions = ClientBaseOptions;
 
 /**
  * @desc 公共返回usage

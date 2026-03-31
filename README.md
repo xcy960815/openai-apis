@@ -1,6 +1,6 @@
 # openai-apis
 
-一个轻量级、类型安全且功能强大的 OpenAI-compatible Chat Completions SDK。支持 Node.js 和浏览器环境，内置流式响应（Streaming）、上下文对话管理、工具调用（Tool Calling）和 Token 计算功能。
+一个轻量级、类型安全且功能强大的 OpenAI-compatible Chat Completions SDK。支持 Node.js 和浏览器环境，内置流式响应（Streaming）、可插拔上下文管理、工具调用（Tool Calling）和 Token 计算功能。
 
 [![npm version](https://img.shields.io/npm/v/openai-apis.svg)](https://www.npmjs.com/package/openai-apis)
 [![license](https://img.shields.io/npm/l/openai-apis.svg)](https://github.com/xcy960815/openai-apis/blob/main/LICENSE)
@@ -10,11 +10,11 @@
 
 - 🚀 **简单易用**：开箱即用，API 设计直观，统一了不同模型的调用方式。
 - 🌊 **流式响应**：完美支持 Server-Sent Events (SSE)，实时获取 AI 回复，体验丝滑。
-- 🧠 **上下文管理**：自动维护对话历史，轻松实现多轮对话，无需手动拼接消息。
+- 🧠 **上下文管理**：支持可插拔的会话存储，可按需开启多轮对话，而不是把状态硬编码进客户端实例。
 - 🔌 **多模型支持**：支持 OpenAI 以及兼容 OpenAI 协议的模型（如 **DeepSeek**）。
 - 🛠️ **工具调用**：支持 `tools` / `tool_choice`，并正确回传 `role: 'tool'` 的结果消息。
 - 📝 **Markdown 转 HTML**：内置 Markdown 解析器，可配置直接输出 HTML 格式。
-- 🔢 **Token 计算**：内置 Token 计算器，自动管理上下文长度，防止超额。
+- 🔢 **Token 计算**：内置基于 `js-tiktoken` 的 Token 计算器，并按模型选择更合适的编码做近似估算。
 - 🌐 **多端支持**：同时支持 Node.js (14+) 和 浏览器环境。
 - 📘 **TypeScript**：提供完整的类型定义，开发体验极佳。
 
@@ -108,9 +108,19 @@ client.sendMessage('写一首关于春天的诗', {
 
 ### 4. 多轮对话 (上下文保持)
 
-通过传递 `parentMessageId` 来保持对话上下文。
+通过传递 `parentMessageId` 来保持对话上下文。为了让 SDK 记住历史消息，需要显式提供一个会话存储：
 
 ```typescript
+import { ChatClient, InMemoryConversationStore } from 'openai-apis';
+
+const client = new ChatClient({
+  apiKey: 'your-openai-api-key',
+  conversationStore: new InMemoryConversationStore(),
+  requestParams: {
+    model: 'gpt-5-mini',
+  }
+});
+
 async function chat() {
   // 第一轮
   const res1 = await client.sendMessage('我叫小明');
@@ -136,7 +146,12 @@ async function chat() {
 | `requestParams` | `object` | `{ model: 'gpt-5-mini' }` | 默认请求参数，可设置 `model`, `temperature`, `reasoning_effort`, `verbosity`, `response_format`, `parallel_tool_calls` 等 |
 | `debug` | `boolean` | `false` | 是否开启调试日志 |
 | `markdown2Html` | `boolean` | `false` | 是否将 Markdown 转换为 HTML |
-| `systemMessage` | `string` | (默认提示词) | 系统预设角色/提示词 |
+| `transformResponseContent` | `function` | - | 自定义响应内容转换器 |
+| `conversationStore` | `ConversationStore` | - | 显式提供会话存储；不传时客户端默认无状态 |
+| `withContent` | `boolean` | `false` | 兼容旧用法，传 `true` 时自动使用默认内存存储 |
+| `tokenCounter` | `TokenCounter` | - | 自定义 Token 计数实现 |
+| `transport` | `OpenAITransport` | - | 自定义 OpenAI-compatible 传输实现 |
+| `systemMessage` | `string` | - | 系统预设角色/提示词；不传则不会自动注入默认系统消息 |
 | `maxResponseTokens` | `number` | `1000` | 回复最大 Token 数 |
 | `milliseconds` | `number` | `60000` | 请求超时时间 (毫秒) |
 
@@ -153,6 +168,13 @@ async function chat() {
 ## 🛠️ Tool Calling 示例
 
 ```typescript
+import { ChatClient, InMemoryConversationStore } from 'openai-apis';
+
+const client = new ChatClient({
+  apiKey: 'your-openai-api-key',
+  conversationStore: new InMemoryConversationStore(),
+});
+
 const res1 = await client.sendMessage('上海天气怎么样？', {
   requestParams: {
     model: 'gpt-5-mini',

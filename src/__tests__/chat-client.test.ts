@@ -1,6 +1,10 @@
 import { ChatClient } from '../chat-client';
+import { InMemoryConversationStore } from '../in-memory-conversation-store';
+import { TokenCountOptions } from '../sdk-types';
 
-global.fetch = jest.fn();
+const mockedFetch = jest.fn();
+
+globalThis.fetch = mockedFetch as unknown as typeof fetch;
 
 jest.mock('marked', () => ({
   marked: (text: string) => `<strong>${text.replace(/\*\*/g, '')}</strong>`,
@@ -31,7 +35,7 @@ function createSseResponse(events: Array<unknown>) {
 
 describe('ChatClient', () => {
   beforeEach(() => {
-    (global.fetch as jest.Mock).mockReset();
+    mockedFetch.mockReset();
   });
 
   it('returns HTML when markdown2Html is true for non-streaming responses', async () => {
@@ -56,7 +60,7 @@ describe('ChatClient', () => {
       },
     };
 
-    (global.fetch as jest.Mock).mockResolvedValue(createJsonResponse(mockResponse));
+    mockedFetch.mockResolvedValue(createJsonResponse(mockResponse));
 
     const client = new ChatClient({
       apiKey: 'test-key',
@@ -69,7 +73,7 @@ describe('ChatClient', () => {
   });
 
   it('streams incremental content and resolves the final assistant response', async () => {
-    (global.fetch as jest.Mock).mockResolvedValue(
+    mockedFetch.mockResolvedValue(
       createSseResponse([
         {
           id: 'chatcmpl-stream',
@@ -154,7 +158,7 @@ describe('ChatClient', () => {
       },
     ];
 
-    (global.fetch as jest.Mock).mockImplementation(async (url: string, init?: RequestInit) => {
+    mockedFetch.mockImplementation(async (url: string, init?: RequestInit) => {
       requestUrls.push(url);
       requestBodies.push(JSON.parse(String(init?.body)));
       return createJsonResponse(responses.shift());
@@ -163,6 +167,7 @@ describe('ChatClient', () => {
     const client = new ChatClient({
       apiKey: 'test-key',
       baseURL: 'https://api.openai.com/v1',
+      conversationStore: new InMemoryConversationStore(),
       markdown2Html: true,
     });
 
@@ -174,13 +179,58 @@ describe('ChatClient', () => {
     expect(requestUrls[0]).toBe('https://api.openai.com/v1/chat/completions');
     expect(requestBodies[0].model).toBe('gpt-5-mini');
     expect(requestBodies[1].messages.map((message: { role: string }) => message.role)).toEqual([
-      'system',
       'user',
       'assistant',
       'user',
     ]);
-    expect(requestBodies[1].messages[1].content).toBe('My name is **Ada**');
-    expect(requestBodies[1].messages[2].content).toBe('Nice to meet you, **Ada**.');
+    expect(requestBodies[1].messages[0].content).toBe('My name is **Ada**');
+    expect(requestBodies[1].messages[1].content).toBe('Nice to meet you, **Ada**.');
+    expect(firstResponse.parentMessageId).toBeDefined();
+    expect(firstResponse.parentMessageId).not.toBe(firstResponse.messageId);
+  });
+
+  it('is stateless by default and requires an explicit store for follow-up history', async () => {
+    const requestBodies: Array<any> = [];
+    const consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => undefined);
+
+    try {
+      mockedFetch.mockImplementation(async (_url: string, init?: RequestInit) => {
+        requestBodies.push(JSON.parse(String(init?.body)));
+        return createJsonResponse({
+          id: 'chatcmpl-first',
+          object: 'chat.completion',
+          created: 1677652288,
+          choices: [
+            {
+              index: 0,
+              message: {
+                role: 'assistant',
+                content: 'Nice to meet you, Ada.',
+              },
+              finish_reason: 'stop',
+            },
+          ],
+        });
+      });
+
+      const client = new ChatClient({ apiKey: 'test-key' });
+      const firstResponse = await client.sendMessage('My name is Ada');
+
+      await expect(
+        client.sendMessage('What is my name?', {
+          parentMessageId: firstResponse.messageId,
+        }),
+      ).rejects.toThrow(
+        'parentMessageId requires a conversationStore. Pass conversationStore or withContent: true to enable history.',
+      );
+
+      expect(requestBodies).toHaveLength(1);
+      expect(requestBodies[0].messages.map((message: { role: string }) => message.role)).toEqual([
+        'user',
+      ]);
+    } finally {
+      consoleErrorSpy.mockRestore();
+    }
   });
 
   it('sends tool results back with role tool instead of rewriting them as user messages', async () => {
@@ -228,12 +278,15 @@ describe('ChatClient', () => {
       },
     ];
 
-    (global.fetch as jest.Mock).mockImplementation(async (_url: string, init?: RequestInit) => {
+    mockedFetch.mockImplementation(async (_url: string, init?: RequestInit) => {
       requestBodies.push(JSON.parse(String(init?.body)));
       return createJsonResponse(responses.shift());
     });
 
-    const client = new ChatClient({ apiKey: 'test-key' });
+    const client = new ChatClient({
+      apiKey: 'test-key',
+      conversationStore: new InMemoryConversationStore(),
+    });
     const firstResponse = await client.sendMessage('What is the weather in Shanghai?', {
       requestParams: {
         tools: [
@@ -256,17 +309,58 @@ describe('ChatClient', () => {
     });
 
     expect(requestBodies[1].messages.map((message: { role: string }) => message.role)).toEqual([
-      'system',
       'user',
       'assistant',
       'tool',
     ]);
-    expect(requestBodies[1].messages[2].tool_calls).toEqual([toolCall]);
-    expect(requestBodies[1].messages[3]).toMatchObject({
+    expect(requestBodies[1].messages[1].tool_calls).toEqual([toolCall]);
+    expect(requestBodies[1].messages[2]).toMatchObject({
       role: 'tool',
       content: '{"temperature":"22","forecast":["sunny"]}',
       tool_call_id: 'call_weather_1',
       name: 'get_current_weather',
     });
+  });
+
+  it('passes the selected model through to the token counter', async () => {
+    const observedOptions: Array<TokenCountOptions | undefined> = [];
+    const tokenCounter = {
+      count: jest.fn(async (_text: string, options?: TokenCountOptions) => {
+        observedOptions.push(options);
+        return 1;
+      }),
+    };
+
+    mockedFetch.mockResolvedValue(
+      createJsonResponse({
+        id: 'chatcmpl-model-aware',
+        object: 'chat.completion',
+        created: 1677652288,
+        choices: [
+          {
+            index: 0,
+            message: {
+              role: 'assistant',
+              content: 'Done.',
+            },
+            finish_reason: 'stop',
+          },
+        ],
+      }),
+    );
+
+    const client = new ChatClient({
+      apiKey: 'test-key',
+      tokenCounter,
+    });
+
+    await client.sendMessage('Hello', {
+      requestParams: {
+        model: 'gpt-4o-mini',
+      },
+    });
+
+    expect(tokenCounter.count).toHaveBeenCalled();
+    expect(observedOptions.every((options) => options?.model === 'gpt-4o-mini')).toBe(true);
   });
 });

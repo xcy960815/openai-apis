@@ -1,4 +1,4 @@
-import { ChatClient } from '../../src/index';
+import { ChatClient, InMemoryConversationStore } from '../../src/index';
 import * as dotenv from 'dotenv';
 import * as path from 'path';
 import * as readline from 'readline';
@@ -20,6 +20,7 @@ const client = new ChatClient({
   apiKey: apiKey,
   apiBaseUrl: apiBaseUrl,
   debug: false, // Disable debug for cleaner CLI output
+  conversationStore: new InMemoryConversationStore(),
   markdown2Html: false, // CLI usually prefers raw text
 });
 

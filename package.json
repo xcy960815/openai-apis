@@ -66,6 +66,7 @@
     "@rollup/plugin-node-resolve": "^16.0.3",
     "@rollup/plugin-terser": "^0.4.4",
     "@types/jest": "^30.0.0",
+    "@types/node": "^24.7.2",
     "@types/uuid": "^9.0.8",
     "@typescript-eslint/eslint-plugin": "^8.48.1",
     "@typescript-eslint/parser": "^8.48.1",
@@ -106,8 +107,8 @@
   },
   "dependencies": {
     "eventsource-parser": "^1.1.2",
-    "gpt3-tokenizer": "^1.1.5",
     "isomorphic-fetch": "^3.0.0",
+    "js-tiktoken": "^1.0.21",
     "marked": "^17.0.1",
     "uuid": "^9.0.1"
   },
